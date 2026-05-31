@@ -1,67 +1,54 @@
-import fs from "node:fs";
-import path from "node:path";
-import { fileURLToPath } from "node:url";
-import * as XLSX from "xlsx";
+import { getSheetsClient, requiredEnv } from "./googleSheets.js";
 
-const __filename = fileURLToPath(import.meta.url);
-const __dirname = path.dirname(__filename);
-const ROOT_DIR = path.resolve(__dirname, "..", "..");
-const DETAIL_SHEET = "Detail Data";
-const WORKBOOK_CANDIDATES = [
-  path.join(ROOT_DIR, "public", "data", "Detail_Report_Format.xlsx"),
-  path.join(ROOT_DIR, "Detail_Report_Format.xlsx"),
-];
+const DETAIL_SHEET = process.env.DATA_SHEET_NAME || "Detail Data";
+const CACHE_MS = 45 * 1000;
 
-let workbookCache = null;
+let dataCache = null;
+let cachedAt = 0;
 
 export function resolveWorkbookPath() {
-  return WORKBOOK_CANDIDATES.find((candidate) => fs.existsSync(candidate));
+  return `Google Sheets: ${DETAIL_SHEET}`;
 }
 
-export function loadWorkbookData() {
-  const source = resolveWorkbookPath();
-
-  if (!source) {
-    throw new Error("Workbook not found. Expected public/data/Detail_Report_Format.xlsx or Detail_Report_Format.xlsx.");
+export async function loadWorkbookData() {
+  if (dataCache && Date.now() - cachedAt < CACHE_MS) {
+    return dataCache;
   }
 
-  const stats = fs.statSync(source);
-  if (workbookCache?.source === source && workbookCache?.mtimeMs === stats.mtimeMs) {
-    return workbookCache.data;
+  const sheets = getSheetsClient();
+  const spreadsheetId = requiredEnv("GOOGLE_SHEET_ID");
+  const range = `${DETAIL_SHEET}!A:ZZ`;
+
+  const response = await sheets.spreadsheets.values.get({ spreadsheetId, range });
+  const rows = response.data.values || [];
+
+  if (rows.length < 2) {
+    throw new Error(`Sheet "${DETAIL_SHEET}" is empty or has no data rows.`);
   }
 
-  const workbook = XLSX.read(fs.readFileSync(source), { type: "buffer" });
-  if (!workbook.Sheets[DETAIL_SHEET]) {
-    throw new Error(`Workbook is missing required sheet: ${DETAIL_SHEET}`);
-  }
-
-  const detailSheet = workbook.Sheets[DETAIL_SHEET];
-  const headerRows = XLSX.utils.sheet_to_json(detailSheet, { raw: true, header: 1 });
-  const detailRows = XLSX.utils.sheet_to_json(detailSheet, { raw: true });
+  const headers = rows[0].map((h) => `${h}`.trim());
+  const detailRows = rows.slice(1).map((row) =>
+    Object.fromEntries(headers.map((header, index) => [header, row[index] ?? ""]))
+  );
   const detailData = detailRows.map(normalizeRow);
-  const columns = (headerRows[0] || []).map((column) => `${column}`);
+  const columns = headers;
 
-  const data = {
+  dataCache = {
     detailData,
     metadata: {
-      source: path.relative(ROOT_DIR, source),
-      sizeBytes: stats.size,
-      modifiedAt: stats.mtime.toISOString(),
-      sheets: workbook.SheetNames,
+      source: `Google Sheets: ${DETAIL_SHEET}`,
+      sizeBytes: null,
+      modifiedAt: new Date().toISOString(),
+      sheets: [DETAIL_SHEET],
       columns,
       shipments: detailData.length,
       dateRange: getDateRange(detailData),
       filters: buildFilterOptions(detailData),
     },
   };
+  cachedAt = Date.now();
 
-  workbookCache = {
-    source,
-    mtimeMs: stats.mtimeMs,
-    data,
-  };
-
-  return data;
+  return dataCache;
 }
 
 export function serializeWorkbookData(data) {
