@@ -1,0 +1,291 @@
+<!doctype html>
+<html lang="th">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Frontend, Backend/API, and E2E Test Plan</title>
+  <style>
+    :root {
+      color-scheme: light;
+      --bg: #f6f7f9;
+      --surface: #ffffff;
+      --text: #1f2937;
+      --muted: #667085;
+      --heading: #111827;
+      --line: #d9dee7;
+      --soft: #eef2f7;
+      --accent: #2563eb;
+      --accent-soft: #dbeafe;
+      --warn: #92400e;
+      --warn-soft: #fef3c7;
+      --ok: #166534;
+      --ok-soft: #dcfce7;
+    }
+    body {
+      margin: 0;
+      background: var(--bg);
+      color: var(--text);
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      line-height: 1.45;
+      font-size: 14px;
+    }
+    .page { max-width: 1060px; margin: 0 auto; padding: 20px 16px 32px; }
+    .hero, section, .toc {
+      background: var(--surface);
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      padding: 14px;
+      margin-bottom: 12px;
+      box-shadow: 0 1px 2px rgba(15, 23, 42, 0.04);
+    }
+    .eyebrow { margin: 0 0 6px; color: var(--accent); font-weight: 700; font-size: 11px; text-transform: uppercase; letter-spacing: .04em; }
+    h1, h2, h3 { color: var(--heading); line-height: 1.25; }
+    h1 { margin: 0 0 6px; font-size: 24px; }
+    h2 { margin: 0 0 8px; font-size: 18px; }
+    h3 { margin: 12px 0 6px; font-size: 15px; }
+    p { margin: 0 0 8px; }
+    .lede { color: var(--muted); font-size: 14px; max-width: 860px; }
+    .toc ul { margin: 6px 0 0; padding-left: 18px; }
+    .callout {
+      border-left: 4px solid var(--accent);
+      background: var(--accent-soft);
+      padding: 8px 10px;
+      border-radius: 6px;
+      margin: 10px 0;
+    }
+    .warning { border-left-color: var(--warn); background: var(--warn-soft); }
+    .checklist { border-left-color: var(--ok); background: var(--ok-soft); }
+    table { border-collapse: collapse; width: 100%; margin: 10px 0; background: var(--surface); }
+    th, td { border: 1px solid var(--line); padding: 7px 8px; vertical-align: top; }
+    th { background: var(--soft); text-align: left; color: var(--heading); }
+    code, pre { font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; font-size: 0.86em; }
+    code { background: var(--soft); padding: 1px 4px; border-radius: 5px; }
+    pre { background: #111827; color: #f9fafb; padding: 10px; border-radius: 6px; overflow-x: auto; }
+    .diagram { margin: 10px 0; overflow-x: auto; }
+    .diagram svg { max-width: 100%; height: auto; display: block; }
+    .node { fill: #ffffff; stroke: var(--line); stroke-width: 1.2; }
+    .node-accent { fill: var(--accent-soft); stroke: var(--accent); }
+    .node-ok { fill: var(--ok-soft); stroke: var(--ok); }
+    .arrow { stroke: #64748b; stroke-width: 1.4; marker-end: url(#arrow); fill: none; }
+    .label { fill: var(--heading); font: 12px -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; }
+    .label-small { fill: var(--muted); font: 10px -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; }
+  </style>
+</head>
+<body>
+  <main class="page">
+    <header class="hero">
+      <p class="eyebrow">Testing Plan</p>
+      <h1>Frontend, Backend/API, and End-to-End Test Plan</h1>
+      <p class="lede">BLUF: repo นี้ยังไม่มี automated test tooling หรือ test scripts ดังนั้นควรเริ่มด้วย Vitest สำหรับ logic/component, Supertest สำหรับ API integration, และ Playwright สำหรับ E2E โดยใช้ workbook fixture กับ fake user store สำหรับ CI หลัก และแยก live Google Sheets test เป็น optional/nightly เท่านั้น</p>
+    </header>
+
+    <nav class="toc">
+      <h2>Contents</h2>
+      <ul>
+        <li><a href="#dispatch">Dispatch Summary</a></li>
+        <li><a href="#current-state">Current State</a></li>
+        <li><a href="#strategy">Test Strategy</a></li>
+        <li><a href="#frontend">Frontend Plan</a></li>
+        <li><a href="#backend">Backend/API Plan</a></li>
+        <li><a href="#e2e">End-to-End Plan</a></li>
+        <li><a href="#fixtures">Fixtures and Test Data</a></li>
+        <li><a href="#ci">CI Sequence</a></li>
+        <li><a href="#phases">Implementation Phases</a></li>
+        <li><a href="#risks">Risks</a></li>
+      </ul>
+    </nav>
+
+    <section id="dispatch">
+      <h2>Dispatch Summary</h2>
+      <table>
+        <thead><tr><th>Item</th><th>Decision</th></tr></thead>
+        <tbody>
+          <tr><td>Task</td><td>วางแผนทดสอบ frontend, backend/API, และ E2E สำหรับ Shipment Analytics Dashboard</td></tr>
+          <tr><td>Route</td><td><code>code_explorer</code> + <code>test_engineer</code> + lead synthesis</td></tr>
+          <tr><td>Why</td><td>ต้องอิงโครงสร้าง repo จริง เพราะ app มีทั้ง Vite frontend, local Express backend, serverless API handlers, workbook parsing, session auth, และ Google Sheets user store</td></tr>
+          <tr><td>Confidence</td><td>High</td></tr>
+        </tbody>
+      </table>
+    </section>
+
+    <section id="current-state">
+      <h2>Current State</h2>
+      <div class="callout warning">
+        ยังไม่มี automated test setup: <code>package.json</code> มี <code>dev</code>, <code>dev:server</code>, <code>build</code>, <code>preview</code>, <code>start</code>, Docker scripts, และ <code>hash-password</code> แต่ไม่มี <code>test</code>, lint, unit, API, หรือ E2E script
+      </div>
+      <table>
+        <thead><tr><th>Area</th><th>Relevant Files</th><th>Testing Implication</th></tr></thead>
+        <tbody>
+          <tr><td>Frontend shell</td><td><code>src/main.jsx</code>, <code>src/App.jsx</code>, <code>src/styles.css</code></td><td>ต้องมี component smoke และ E2E เพราะ logic filter/table/KPI จำนวนมากอยู่ใน component เดียว</td></tr>
+          <tr><td>Frontend API/data</td><td><code>src/lib/api.js</code>, <code>src/lib/loadWorkbook.js</code>, <code>src/lib/dashboard.js</code></td><td>เหมาะกับ Vitest สำหรับ pure logic และ workbook fixture parsing</td></tr>
+          <tr><td>Local backend</td><td><code>server.js</code></td><td>ควรแยก app factory ภายหลังเพื่อให้ Supertest ยิง API ได้โดยไม่ต้องเปิด port จริง</td></tr>
+          <tr><td>Serverless API handlers</td><td><code>api/auth/*</code>, <code>api/admin/users/*</code>, <code>api/workbook.js</code></td><td>ต้องมี parity check เพราะ local server มี endpoint มากกว่า serverless files</td></tr>
+          <tr><td>Shared backend libs</td><td><code>api/_lib/authHandlers.js</code>, <code>api/_lib/session.js</code>, <code>api/_lib/users.js</code>, <code>api/_lib/workbook.js</code></td><td>auth/session/user store และ workbook transform เป็นจุดสำคัญของ integration tests</td></tr>
+          <tr><td>Infra</td><td><code>vite.config.js</code>, <code>docker-compose.yml</code>, <code>Dockerfile</code>, <code>Dockerfile.backend</code></td><td>Vite proxy <code>/api -> localhost:3001</code> ช่วยให้ E2E local stack ตรงกับ dev flow</td></tr>
+        </tbody>
+      </table>
+    </section>
+
+    <section id="strategy">
+      <h2>Test Strategy</h2>
+      <div class="diagram" aria-label="Testing strategy flow">
+        <svg viewBox="0 0 760 130" role="img">
+          <defs>
+            <marker id="arrow" markerWidth="8" markerHeight="8" refX="7" refY="3.5" orient="auto">
+              <polygon points="0 0, 8 3.5, 0 7" fill="#64748b"></polygon>
+            </marker>
+          </defs>
+          <rect class="node node-accent" x="10" y="32" width="150" height="58" rx="7"></rect>
+          <text class="label" x="34" y="56">Unit / Logic</text>
+          <text class="label-small" x="28" y="72">Vitest, fixtures</text>
+          <path class="arrow" d="M165 61 H225"></path>
+          <rect class="node" x="230" y="32" width="150" height="58" rx="7"></rect>
+          <text class="label" x="258" y="56">API Integration</text>
+          <text class="label-small" x="252" y="72">Supertest, fake users</text>
+          <path class="arrow" d="M385 61 H445"></path>
+          <rect class="node" x="450" y="32" width="150" height="58" rx="7"></rect>
+          <text class="label" x="486" y="56">E2E Smoke</text>
+          <text class="label-small" x="476" y="72">Playwright stack</text>
+          <path class="arrow" d="M605 61 H665"></path>
+          <rect class="node node-ok" x="670" y="32" width="80" height="58" rx="7"></rect>
+          <text class="label" x="690" y="56">CI Gate</text>
+          <text class="label-small" x="684" y="72">Build + tests</text>
+        </svg>
+      </div>
+      <table>
+        <thead><tr><th>Layer</th><th>Tool</th><th>Purpose</th><th>Run Frequency</th></tr></thead>
+        <tbody>
+          <tr><td>Unit / shared logic</td><td><code>Vitest</code></td><td>dashboard transforms, workbook parsing, auth/session helpers where isolated</td><td>Every PR and local edit loop</td></tr>
+          <tr><td>Frontend component smoke</td><td><code>Vitest</code> + <code>@testing-library/react</code> + <code>jsdom</code></td><td>login screen, dashboard loaded state, filter interactions with mocked API</td><td>Every PR</td></tr>
+          <tr><td>API integration</td><td><code>Vitest</code> + <code>supertest</code></td><td>auth/session/admin/workbook/protected routes with fake users and workbook fixture</td><td>Every PR</td></tr>
+          <tr><td>E2E smoke</td><td><code>Playwright</code></td><td>real browser checks for login, dashboard, filters, table, admin, logout</td><td>Every PR after API tests pass</td></tr>
+          <tr><td>Live external integration</td><td><code>Vitest</code> or Playwright project</td><td>Google Sheets credentials and real test sheet behavior</td><td>Nightly or manual, not main PR gate</td></tr>
+        </tbody>
+      </table>
+    </section>
+
+    <section id="frontend">
+      <h2>Frontend Plan</h2>
+      <h3>Unit and Logic Tests</h3>
+      <table>
+        <thead><tr><th>Target</th><th>Cases</th><th>Acceptance</th></tr></thead>
+        <tbody>
+          <tr><td><code>src/lib/dashboard.js</code></td><td>filter options, date/month/quarter grouping, top lists, empty rows, unknown values</td><td>outputs are deterministic and match fixture totals</td></tr>
+          <tr><td><code>src/lib/loadWorkbook.js</code></td><td>parse small workbook fixture, normalize date/yearQuarter/route/status/qty/TEU</td><td>fixture workbook produces expected normalized rows and metadata</td></tr>
+          <tr><td><code>src/lib/api.js</code></td><td>base URL handling, JSON error body handling, credentials included</td><td>fetch is called with normalized path and thrown error uses API message</td></tr>
+        </tbody>
+      </table>
+      <h3>Component Smoke Tests</h3>
+      <ul>
+        <li>Initial session check: no session returns login screen.</li>
+        <li>Successful login: calls <code>/api/auth/login</code>, then renders dashboard after mocked workbook data loads.</li>
+        <li>Filter changes: quarter/month/year and multi-select changes update visible row count and KPI values.</li>
+        <li>Table behavior: search and sort change row order/count without runtime errors.</li>
+        <li>Workbook import: valid file updates dashboard state; invalid file shows inline error.</li>
+      </ul>
+    </section>
+
+    <section id="backend">
+      <h2>Backend/API Plan</h2>
+      <div class="callout warning">
+        Local <code>server.js</code> exposes <code>/api/health</code>, <code>/api/metadata</code>, <code>/api/shipments</code>, และ <code>/api/analytics</code> แต่ serverless <code>api/</code> folder มีเพียง auth/admin/workbook handlers ดังนั้นต้องมี endpoint parity check ก่อน deploy
+      </div>
+      <table>
+        <thead><tr><th>Route Group</th><th>Cases</th><th>Expected Result</th></tr></thead>
+        <tbody>
+          <tr><td>Health</td><td><code>GET /api/health</code> with/without workbook</td><td>200 with <code>ok=true</code>; workbook fields reflect file availability</td></tr>
+          <tr><td>Auth</td><td>login invalid, login valid, session after login, logout</td><td>401 invalid; 200 valid; cookie set/cleared correctly</td></tr>
+          <tr><td>Protected data</td><td><code>/api/workbook</code>, <code>/api/metadata</code>, <code>/api/shipments</code>, <code>/api/analytics</code> without cookie</td><td>401 authentication required</td></tr>
+          <tr><td>Workbook data</td><td>authorized workbook and metadata requests</td><td>200 with metadata, rows, filters, sheets, date range</td></tr>
+          <tr><td>Shipments</td><td>query filters and <code>limit</code> clamp</td><td>count reflects all matched rows; returned rows respect 1..500 clamp</td></tr>
+          <tr><td>Analytics</td><td><code>grain=month|quarter|year</code>, invalid grain, filters</td><td>correct summary, series, top groups; invalid grain falls back to month</td></tr>
+          <tr><td>Admin</td><td>normal user list/create/patch, admin list/create/patch</td><td>403 for normal user; 200/201 for admin</td></tr>
+        </tbody>
+      </table>
+      <h3>Testability Refactor Needed</h3>
+      <ul>
+        <li>Extract Express app creation from <code>server.js</code> into an app factory such as <code>api/_lib/createApp.js</code>, then let <code>server.js</code> only call <code>app.listen</code>.</li>
+        <li>Introduce a fake user store or injectable user repository for tests so PR CI does not depend on Google Sheets credentials/network.</li>
+        <li>Keep live Google Sheets coverage as a separate optional suite using a dedicated test spreadsheet.</li>
+      </ul>
+    </section>
+
+    <section id="e2e">
+      <h2>End-to-End Plan</h2>
+      <table>
+        <thead><tr><th>Spec</th><th>Flow</th><th>Acceptance</th></tr></thead>
+        <tbody>
+          <tr><td><code>auth-login-dashboard.spec</code></td><td>open app, see login, submit seeded user, dashboard renders</td><td>page title, KPI cards, charts/table shell, and signed-in user appear</td></tr>
+          <tr><td><code>filters-and-table.spec</code></td><td>change quarter/month/year, use multi-select, search table, sort columns</td><td>record count/KPI/table update without console errors</td></tr>
+          <tr><td><code>workbook-import.spec</code></td><td>upload fixture workbook from browser</td><td>dashboard resets to imported data and row count matches fixture</td></tr>
+          <tr><td><code>admin-users.spec</code></td><td>admin opens Users panel, creates user, patches role/status, closes panel</td><td>admin operations return visible success state and refreshed list</td></tr>
+          <tr><td><code>logout-session.spec</code></td><td>logout, refresh, session expired</td><td>returns to login and protected dashboard is not visible</td></tr>
+          <tr><td><code>resilience.spec</code></td><td>API down or 401 during workbook load</td><td>app shows controlled error/login state, not a blank screen</td></tr>
+        </tbody>
+      </table>
+    </section>
+
+    <section id="fixtures">
+      <h2>Fixtures and Test Data</h2>
+      <table>
+        <thead><tr><th>Fixture</th><th>Recommended Location</th><th>Contents</th></tr></thead>
+        <tbody>
+          <tr><td>Workbook fixture</td><td><code>tests/fixtures/workbook/Detail_Report_Format.xlsx</code></td><td>small workbook with <code>Detail Data</code> sheet, multiple years/quarters/months, repeated and unique trade/carrier/shipper, missing field edge cases</td></tr>
+          <tr><td>User fixture</td><td><code>tests/fixtures/users/users.json</code></td><td>one admin, one active user, one disabled user, bcrypt-compatible password hashes</td></tr>
+          <tr><td>API fixture server state</td><td><code>tests/helpers</code></td><td>fake user repository, session helpers, test env defaults, workbook path override</td></tr>
+          <tr><td>Playwright auth state</td><td><code>tests/e2e/.auth</code></td><td>optional saved state for admin/user login after smoke login test passes</td></tr>
+        </tbody>
+      </table>
+      <div class="callout checklist">
+        CI หลักควรใช้ fake users และ workbook fixture เท่านั้น เพื่อให้ deterministic. Live Google Sheets suite ควรแยกด้วย env flag เช่น <code>RUN_LIVE_GOOGLE_TESTS=1</code>
+      </div>
+    </section>
+
+    <section id="ci">
+      <h2>CI Sequence</h2>
+      <pre>npm ci
+npm run build
+npm run test:unit
+npm run test:api
+npm run test:e2e</pre>
+      <table>
+        <thead><tr><th>Script</th><th>Purpose</th></tr></thead>
+        <tbody>
+          <tr><td><code>test:unit</code></td><td>Vitest for shared logic and component smoke tests</td></tr>
+          <tr><td><code>test:api</code></td><td>Vitest/Supertest for local Express app and shared handlers</td></tr>
+          <tr><td><code>test:e2e</code></td><td>Playwright browser tests against local frontend + backend stack</td></tr>
+          <tr><td><code>test</code></td><td>Convenience script that runs unit and API tests; E2E can stay separate if too slow</td></tr>
+        </tbody>
+      </table>
+    </section>
+
+    <section id="phases">
+      <h2>Implementation Phases</h2>
+      <table>
+        <thead><tr><th>Phase</th><th>Scope</th><th>Done When</th></tr></thead>
+        <tbody>
+          <tr><td>1. Baseline smoke</td><td>Add Vitest, first dashboard/loadWorkbook tests, and <code>npm run test:unit</code></td><td><code>npm run build</code> and <code>npm run test:unit</code> pass locally</td></tr>
+          <tr><td>2. API testability</td><td>Extract Express app factory, add Supertest, fake users, workbook fixture</td><td>auth/protected/workbook/admin API tests pass without Google credentials</td></tr>
+          <tr><td>3. E2E smoke</td><td>Add Playwright login/dashboard/filter/logout tests</td><td>E2E passes against local Vite + Express stack</td></tr>
+          <tr><td>4. CI hardening</td><td>Add GitHub Actions or equivalent CI workflow with artifacts</td><td>PRs run build, unit, API, and selected E2E smoke automatically</td></tr>
+          <tr><td>5. Live integration</td><td>Optional Google Sheets test suite using dedicated test sheet</td><td>Manual/nightly command validates credentials and sheet writes safely</td></tr>
+        </tbody>
+      </table>
+    </section>
+
+    <section id="risks">
+      <h2>Risks</h2>
+      <table>
+        <thead><tr><th>Risk</th><th>Impact</th><th>Mitigation</th></tr></thead>
+        <tbody>
+          <tr><td>Google Sheets dependency in auth/user store</td><td>Slow/flaky CI and secret exposure risk</td><td>Use fake user store in CI; keep live tests optional</td></tr>
+          <tr><td>Workbook missing from repo</td><td>Backend data routes fail locally/CI</td><td>Create small committed fixture under <code>tests/fixtures</code>; keep production workbook out of git</td></tr>
+          <tr><td>Local/serverless endpoint mismatch</td><td>Deployment can miss routes tested locally</td><td>Add parity checklist and deploy-target smoke tests</td></tr>
+          <tr><td>Large logic in <code>src/App.jsx</code></td><td>Component tests become brittle</td><td>Move pure derivation logic into <code>src/lib</code> when adding tests around it</td></tr>
+          <tr><td>No lint/typecheck gate</td><td>Regression detection depends on runtime tests only</td><td>Add lint/typecheck later if project adopts ESLint/TypeScript</td></tr>
+        </tbody>
+      </table>
+    </section>
+  </main>
+</body>
+</html>
