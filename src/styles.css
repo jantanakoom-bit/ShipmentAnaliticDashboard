@@ -800,6 +800,7 @@ button:hover {
 
 .chart-wide {
   grid-column: span 2;
+  width: 100%;
 }
 
 .chart-card,
@@ -842,6 +843,19 @@ button:hover {
 
 .chart-wide .chart-wrap {
   height: 280px;
+}
+
+.chart-empty {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  height: 200px;
+  color: var(--text-muted);
+  font-size: 12px;
+  font-weight: 600;
+  border: 1px dashed var(--border);
+  border-radius: var(--radius-sm);
+  background: var(--surface2);
 }
 
 .tops-grid {

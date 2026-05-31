@@ -56,13 +56,15 @@ export function buildRows(count = 60) {
   });
 }
 
-export async function mockDashboardApi(page, { user = adminUser, sessionStartsAuthenticated = false, workbookFails = false } = {}) {
+export async function mockDashboardApi(
+  page,
+  { user = adminUser, sessionStartsAuthenticated = false, workbookFails = false, rows = buildRows() } = {},
+) {
   let authenticated = sessionStartsAuthenticated;
   let users = [
     adminUser,
     { id: "user-3", username: "disabled", role: "user", displayName: "Disabled User", status: "disabled" },
   ];
-  const rows = buildRows();
 
   await page.route("**/api/auth/session", async (route) => {
     await route.fulfill({

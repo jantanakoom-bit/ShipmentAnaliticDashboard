@@ -3,7 +3,9 @@ import {
   Bar,
   BarChart,
   CartesianGrid,
-  Cell,
+  Legend,
+  Line,
+  LineChart,
   ResponsiveContainer,
   Tooltip,
   XAxis,
@@ -11,9 +13,13 @@ import {
 } from "recharts";
 import DetailKpi from "../components/DetailKpi";
 import ChartCard from "../components/ChartCard";
+import ChartTooltip from "../components/ChartTooltip";
 import TabPanel from "../components/TabPanel";
 import { formatNumber } from "../lib/utils";
-import { CHART_COLORS } from "../lib/constants";
+import { CHART_COLORS, DIMENSION_PALETTES } from "../lib/constants";
+
+const TICK_STYLE = { fontSize: 10, fontFamily: '"IBM Plex Mono", "Cascadia Mono", monospace', fill: "#76827f" };
+const GRID_STROKE = "#f1f5f9";
 
 export default function AnalyticsPage({
   filteredRows,
@@ -120,6 +126,8 @@ export default function AnalyticsPage({
     );
   }
 
+  const hasTrendData = filteredMonthly?.series?.length > 0 && filteredMonthly?.years?.length > 0;
+
   return (
     <div className="page-analytics">
       {/* Filter Summary Bar */}
@@ -176,60 +184,98 @@ export default function AnalyticsPage({
         <DetailKpi label="Jobs" value={formatNumber(uniqueJobs)} sub="Unique Job No" />
       </div>
 
+      {/* Monthly TEU Trend — full width */}
+      {hasTrendData && (
+        <div className="section">
+          <div className="section-head">
+            <div>
+              <div className="section-title">Monthly TEU Trend</div>
+              <div className="section-sub">Year-over-year comparison filtered by your selection</div>
+            </div>
+          </div>
+          <ChartCard wide>
+            <ResponsiveContainer width="100%" height={260}>
+              <LineChart data={filteredMonthly.series}>
+                <CartesianGrid stroke={GRID_STROKE} />
+                <XAxis dataKey="month" tick={TICK_STYLE} />
+                <YAxis tick={TICK_STYLE} />
+                <Tooltip content={<ChartTooltip />} />
+                <Legend wrapperStyle={{ fontSize: 11, fontFamily: '"IBM Plex Mono", monospace', paddingTop: 8 }} />
+                {filteredMonthly.years.map((year, index) => (
+                  <Line
+                    key={year}
+                    type="monotone"
+                    dataKey={String(year)}
+                    stroke={CHART_COLORS[index % CHART_COLORS.length]}
+                    strokeWidth={2}
+                    dot={{ r: 3, strokeWidth: 1 }}
+                    activeDot={{ r: 5 }}
+                  />
+                ))}
+              </LineChart>
+            </ResponsiveContainer>
+          </ChartCard>
+        </div>
+      )}
+
       {/* 2x2 Chart Grid */}
       <div className="charts-grid-2x2">
-        <ChartCard title="TEU by Carrier" sub="Top carriers by TEU volume">
-          <ResponsiveContainer width="100%" height={220}>
+        <ChartCard title="TEU by Carrier" sub="Top carriers by TEU volume" empty={topCarrier.length === 0}>
+          <ResponsiveContainer width="100%" height={260}>
             <BarChart data={topCarrier} layout="vertical">
-              <CartesianGrid stroke="#e2e6f0" horizontal={false} />
-              <XAxis type="number" tick={{ fontSize: 10 }} />
-              <YAxis type="category" dataKey="name" width={95} tick={{ fontSize: 10 }} />
-              <Tooltip />
-              <Bar dataKey="value">
-                {topCarrier.map((item, index) => (
-                  <Cell key={item.name} fill={CHART_COLORS[index % CHART_COLORS.length]} />
-                ))}
-              </Bar>
+              <CartesianGrid stroke={GRID_STROKE} horizontal={false} />
+              <XAxis type="number" tick={TICK_STYLE} />
+              <YAxis type="category" dataKey="name" width={95} tick={TICK_STYLE} />
+              <Tooltip content={<ChartTooltip />} cursor={{ fill: "rgba(15,118,110,0.04)" }} />
+              <Bar dataKey="value" fill={DIMENSION_PALETTES.carrier.base} radius={[0, 4, 4, 0]} barSize={18} />
             </BarChart>
           </ResponsiveContainer>
         </ChartCard>
 
-        <ChartCard title="TEU by Country" sub="Top destination countries">
-          <ResponsiveContainer width="100%" height={220}>
+        <ChartCard title="TEU by Country" sub="Top destination countries" empty={topCountry.length === 0}>
+          <ResponsiveContainer width="100%" height={260}>
             <BarChart data={topCountry} layout="vertical">
-              <CartesianGrid stroke="#e2e6f0" horizontal={false} />
-              <XAxis type="number" tick={{ fontSize: 10 }} />
-              <YAxis type="category" dataKey="name" width={95} tick={{ fontSize: 10 }} />
-              <Tooltip />
-              <Bar dataKey="value">
-                {topCountry.map((item, index) => (
-                  <Cell key={item.name} fill={CHART_COLORS[index % CHART_COLORS.length]} />
-                ))}
-              </Bar>
+              <CartesianGrid stroke={GRID_STROKE} horizontal={false} />
+              <XAxis type="number" tick={TICK_STYLE} />
+              <YAxis type="category" dataKey="name" width={95} tick={TICK_STYLE} />
+              <Tooltip content={<ChartTooltip />} cursor={{ fill: "rgba(15,118,110,0.04)" }} />
+              <Bar dataKey="value" fill={DIMENSION_PALETTES.country.base} radius={[0, 4, 4, 0]} barSize={18} />
             </BarChart>
           </ResponsiveContainer>
         </ChartCard>
 
-        <ChartCard title="TEU by Trade Route" sub="Top trade routes by volume">
+        <ChartCard title="TEU by Trade Route" sub="Top trade routes by volume" empty={topTrade.length === 0}>
           <ResponsiveContainer width="100%" height={220}>
             <BarChart data={topTrade}>
-              <CartesianGrid stroke="#e2e6f0" vertical={false} />
-              <XAxis dataKey="name" tick={{ fontSize: 10 }} angle={-20} textAnchor="end" height={60} />
-              <YAxis tick={{ fontSize: 10 }} />
-              <Tooltip />
-              <Bar dataKey="value" fill="#d97706" />
+              <CartesianGrid stroke={GRID_STROKE} vertical={false} />
+              <XAxis
+                dataKey="name"
+                tick={TICK_STYLE}
+                tickFormatter={(name) => (name.length > 10 ? `${name.slice(0, 9)}…` : name)}
+                height={50}
+                interval={0}
+              />
+              <YAxis tick={TICK_STYLE} />
+              <Tooltip content={<ChartTooltip />} cursor={{ fill: "rgba(15,118,110,0.04)" }} />
+              <Bar dataKey="value" fill={DIMENSION_PALETTES.trade.base} radius={[4, 4, 0, 0]} barSize={24} />
             </BarChart>
           </ResponsiveContainer>
         </ChartCard>
 
-        <ChartCard title="Volume by Sale Name" sub="TEU contribution per salesperson">
+        <ChartCard title="Volume by Sale Name" sub="TEU contribution per salesperson" empty={topSales.length === 0}>
           <ResponsiveContainer width="100%" height={220}>
             <BarChart data={topSales}>
-              <CartesianGrid stroke="#e2e6f0" vertical={false} />
-              <XAxis dataKey="name" tick={{ fontSize: 10 }} angle={-20} textAnchor="end" height={60} />
-              <YAxis tick={{ fontSize: 10 }} />
-              <Tooltip />
-              <Bar dataKey="value" fill="#7c3aed" />
+              <CartesianGrid stroke={GRID_STROKE} vertical={false} />
+              <XAxis
+                dataKey="name"
+                tick={TICK_STYLE}
+                tickFormatter={(name) => (name.length > 10 ? `${name.slice(0, 9)}…` : name)}
+                height={50}
+                interval={0}
+              />
+              <YAxis tick={TICK_STYLE} />
+              <Tooltip content={<ChartTooltip />} cursor={{ fill: "rgba(15,118,110,0.04)" }} />
+              <Bar dataKey="value" fill={DIMENSION_PALETTES.sales.base} radius={[4, 4, 0, 0]} barSize={24} />
             </BarChart>
           </ResponsiveContainer>
         </ChartCard>

@@ -1,4 +1,5 @@
 import { SignJWT, jwtVerify } from "jose";
+import { TextEncoder } from "node:util";
 import { readCookie, isProduction } from "./http.js";
 
 export const SESSION_MAX_AGE_SECONDS = 8 * 60 * 60;

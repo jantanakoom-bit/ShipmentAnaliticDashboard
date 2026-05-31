@@ -13,6 +13,13 @@ export const CHART_COLORS = [
   "#1d4ed8",
 ];
 
+export const DIMENSION_PALETTES = {
+  carrier: { base: "#2563eb" },
+  country: { base: "#059669" },
+  trade: { base: "#d97706" },
+  sales: { base: "#7c3aed" },
+};
+
 export const MONTH_LABELS = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
 
 export const FILTER_KEYS = ["port", "country", "trade", "carrier", "sales"];
