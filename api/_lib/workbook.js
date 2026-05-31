@@ -270,9 +270,17 @@ function toNumber(value) {
 }
 
 function toExcelDate(value) {
-  if (typeof value !== "number") return null;
-  const utcDays = Math.floor(value - 25569);
-  return new Date(utcDays * 86400 * 1000);
+  if (typeof value === "number") {
+    const utcDays = Math.floor(value - 25569);
+    return new Date(utcDays * 86400 * 1000);
+  }
+  if (typeof value === "string" && value.trim()) {
+    const parsed = new Date(value);
+    if (!Number.isNaN(parsed.getTime())) {
+      return parsed;
+    }
+  }
+  return null;
 }
 
 function formatMonth(dateValue) {
