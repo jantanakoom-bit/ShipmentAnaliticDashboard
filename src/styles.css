@@ -242,6 +242,7 @@ button:hover {
   flex: 1;
   max-width: 1680px;
   width: 100%;
+  background: radial-gradient(ellipse at top center, rgba(15, 118, 110, 0.025) 0%, transparent 60%);
 }
 
 .sidebar-header {
@@ -266,31 +267,6 @@ button:hover {
   font-size: 10px;
   color: var(--text-muted);
   margin-top: 2px;
-}
-
-.file-import {
-  display: grid;
-  gap: 8px;
-  margin-top: 12px;
-  padding: 12px;
-  border: 1px dashed var(--border-strong);
-  border-radius: var(--radius-sm);
-  background: #fff;
-  color: var(--text-secondary);
-  cursor: pointer;
-}
-
-.file-import span {
-  font-size: 10px;
-  font-weight: 800;
-  letter-spacing: 0.08em;
-  text-transform: uppercase;
-}
-
-.file-import input {
-  width: 100%;
-  font-size: 11px;
-  color: var(--text-muted);
 }
 
 .filters-scroll {
@@ -347,6 +323,11 @@ button:hover {
   display: flex;
   align-items: center;
   gap: 5px;
+}
+
+.section-title {
+  font-size: 11px;
+  color: var(--text-primary);
 }
 
 .chip-actions {
@@ -535,10 +516,10 @@ button:hover {
   align-items: end;
   margin-bottom: 24px;
   padding: 28px;
-  background: #fff;
+  background: linear-gradient(135deg, #f0fdf9 0%, #ffffff 60%);
   border: 1px solid var(--border);
   border-radius: 24px;
-  box-shadow: var(--shadow);
+  box-shadow: 0 20px 48px rgba(23, 32, 31, 0.10);
 }
 
 .hero-panel h1 {
@@ -576,7 +557,7 @@ button:hover {
   padding: 16px;
   border: 1px solid var(--border);
   border-radius: 16px;
-  background: linear-gradient(180deg, #ffffff 0%, var(--surface2) 100%);
+  background: linear-gradient(160deg, #f0fdf9 0%, #ffffff 50%, var(--surface2) 100%);
 }
 
 .insight-tile strong {
@@ -619,13 +600,19 @@ button:hover {
 }
 
 .kpi-card {
-  background: var(--surface);
+  background: linear-gradient(180deg, #ffffff 0%, var(--surface2) 100%);
   border-radius: var(--radius);
   padding: 20px;
   box-shadow: var(--shadow-sm);
   border: 1px solid var(--border);
   position: relative;
   overflow: hidden;
+  transition: transform 0.2s ease, box-shadow 0.2s ease;
+}
+
+.kpi-card:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 22px 44px rgba(23, 32, 31, 0.12);
 }
 
 .kpi-card::before {
@@ -669,11 +656,17 @@ button:hover {
 }
 
 .detail-kpi {
-  background: var(--surface);
+  background: linear-gradient(180deg, #ffffff 0%, var(--surface3) 100%);
   border-radius: var(--radius-sm);
   padding: 14px 16px;
   border: 1px solid var(--border);
   box-shadow: var(--shadow-sm);
+  transition: transform 0.2s ease, box-shadow 0.2s ease;
+}
+
+.detail-kpi:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 12px 28px rgba(23, 32, 31, 0.10);
 }
 
 .detail-kpi .lbl {
@@ -716,6 +709,16 @@ button:hover {
   padding: 20px;
   box-shadow: var(--shadow-sm);
   border: 1px solid var(--border);
+}
+
+.chart-card {
+  background: linear-gradient(180deg, #fff 0%, var(--surface2) 100%);
+  transition: transform 0.2s ease, box-shadow 0.2s ease;
+}
+
+.chart-card:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 16px 36px rgba(23, 32, 31, 0.10);
 }
 
 .chart-title,
@@ -777,9 +780,20 @@ button:hover {
   flex-shrink: 0;
 }
 
+.top-card {
+  background: linear-gradient(180deg, #fff 0%, var(--surface2) 100%);
+  transition: transform 0.2s ease, box-shadow 0.2s ease;
+}
+
+.top-card:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 16px 36px rgba(23, 32, 31, 0.10);
+}
+
 .top-rank.r1 {
   background: #fef9c3;
   color: #854d0e;
+  box-shadow: 0 0 0 2px rgba(254, 249, 195, 0.6);
 }
 
 .top-rank.r2 {
@@ -815,6 +829,10 @@ button:hover {
   border-radius: 3px;
 }
 
+.top-bar {
+  background: linear-gradient(90deg, currentColor 0%, color-mix(in srgb, currentColor 80%, white) 100%);
+}
+
 .top-val {
   font-size: 11px;
   font-weight: 800;
@@ -835,6 +853,13 @@ button:hover {
   border: 1px solid var(--border);
   border-radius: 10px;
   padding: 12px 14px;
+  transition: transform 0.2s ease, box-shadow 0.2s ease, border-color 0.2s ease;
+}
+
+.sale-card:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 12px 28px rgba(23, 32, 31, 0.10);
+  border-left: 3px solid var(--accent);
 }
 
 .sale-card-head,
@@ -1001,6 +1026,10 @@ button:hover {
   overflow-x: auto;
 }
 
+.table-card {
+  border-top: 3px solid var(--accent);
+}
+
 table {
   width: 100%;
   border-collapse: collapse;
@@ -1026,6 +1055,7 @@ thead th {
 
 thead th:hover {
   color: var(--accent);
+  background: var(--surface2);
 }
 
 thead th .sort-icon {
@@ -1101,7 +1131,7 @@ tbody td {
 
 .tfoot-row td {
   font-weight: 800;
-  border-top: 2px solid var(--border);
+  border-top: 2px solid var(--accent);
   font-family: "Cascadia Mono", "IBM Plex Mono", monospace;
 }
 
