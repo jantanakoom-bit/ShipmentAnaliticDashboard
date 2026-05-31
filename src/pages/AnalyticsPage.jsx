@@ -20,6 +20,31 @@ import { CHART_COLORS, DIMENSION_PALETTES } from "../lib/constants";
 
 const TICK_STYLE = { fontSize: 10, fontFamily: '"IBM Plex Mono", "Cascadia Mono", monospace', fill: "#76827f" };
 const GRID_STROKE = "#f1f5f9";
+const VERTICAL_AXIS_HEIGHT = 96;
+
+function formatAxisLabel(value, maxLength = 12) {
+  const label = String(value || "");
+  return label.length > maxLength ? `${label.slice(0, maxLength - 1)}…` : label;
+}
+
+function VerticalXAxisTick({ x, y, payload, maxLength = 12 }) {
+  return (
+    <g transform={`translate(${x},${y})`}>
+      <text
+        x={0}
+        y={0}
+        dy={4}
+        fill={TICK_STYLE.fill}
+        fontFamily={TICK_STYLE.fontFamily}
+        fontSize={TICK_STYLE.fontSize}
+        textAnchor="end"
+        transform="rotate(-90)"
+      >
+        {formatAxisLabel(payload?.value, maxLength)}
+      </text>
+    </g>
+  );
+}
 
 export default function AnalyticsPage({
   filteredRows,
@@ -245,15 +270,15 @@ export default function AnalyticsPage({
         </ChartCard>
 
         <ChartCard title="TEU by Trade Route" sub="Top trade routes by volume" empty={topTrade.length === 0}>
-          <ResponsiveContainer width="100%" height={220}>
-            <BarChart data={topTrade}>
+          <ResponsiveContainer width="100%" height={260}>
+            <BarChart data={topTrade} margin={{ top: 8, right: 12, left: 0, bottom: 32 }}>
               <CartesianGrid stroke={GRID_STROKE} vertical={false} />
               <XAxis
                 dataKey="name"
-                tick={TICK_STYLE}
-                tickFormatter={(name) => (name.length > 10 ? `${name.slice(0, 9)}…` : name)}
-                height={50}
+                tick={<VerticalXAxisTick />}
+                height={VERTICAL_AXIS_HEIGHT}
                 interval={0}
+                tickMargin={8}
               />
               <YAxis tick={TICK_STYLE} />
               <Tooltip content={<ChartTooltip />} cursor={{ fill: "rgba(15,118,110,0.04)" }} />
@@ -263,15 +288,15 @@ export default function AnalyticsPage({
         </ChartCard>
 
         <ChartCard title="Volume by Sale Name" sub="TEU contribution per salesperson" empty={topSales.length === 0}>
-          <ResponsiveContainer width="100%" height={220}>
-            <BarChart data={topSales}>
+          <ResponsiveContainer width="100%" height={260}>
+            <BarChart data={topSales} margin={{ top: 8, right: 12, left: 0, bottom: 32 }}>
               <CartesianGrid stroke={GRID_STROKE} vertical={false} />
               <XAxis
                 dataKey="name"
-                tick={TICK_STYLE}
-                tickFormatter={(name) => (name.length > 10 ? `${name.slice(0, 9)}…` : name)}
-                height={50}
+                tick={<VerticalXAxisTick />}
+                height={VERTICAL_AXIS_HEIGHT}
                 interval={0}
+                tickMargin={8}
               />
               <YAxis tick={TICK_STYLE} />
               <Tooltip content={<ChartTooltip />} cursor={{ fill: "rgba(15,118,110,0.04)" }} />

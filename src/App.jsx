@@ -18,6 +18,7 @@ import {
 } from "./lib/utils";
 
 import LoginScreen from "./components/LoginScreen";
+import AiChatDrawer from "./components/AiChatDrawer";
 import NavSidebar from "./components/NavSidebar";
 
 const DashboardPage = lazy(() => import("./pages/DashboardPage"));
@@ -297,6 +298,20 @@ function AppShell(props) {
       : pathname === "/admin"
         ? "Admin"
         : "Dashboard";
+  const chatFilters = {
+    years: props.dateFilters.years,
+    quarters: props.dateFilters.quarters,
+    months: props.dateFilters.months,
+    port: props.selected.port,
+    country: props.selected.country,
+    trade: props.selected.trade,
+    carrier: props.selected.carrier,
+    sales: props.selected.sales,
+  };
+  const chatPageContext = {
+    route: pathname,
+    recordCount: props.filteredRows.length,
+  };
 
   return (
     <div className="app-shell">
@@ -427,6 +442,9 @@ function AppShell(props) {
           </Suspense>
         </div>
       </main>
+      {pathname !== "/admin" ? (
+        <AiChatDrawer filters={chatFilters} pageContext={chatPageContext} />
+      ) : null}
     </div>
   );
 }
