@@ -1,6 +1,6 @@
 import bcrypt from "bcryptjs";
 import { randomUUID } from "node:crypto";
-import { google } from "googleapis";
+import { getSheetsClient, requiredEnv } from "./googleSheets.js";
 
 const USER_SHEET_NAME = process.env.USER_SHEET_NAME || "Users";
 const CACHE_MS = 45 * 1000;
@@ -19,28 +19,6 @@ const HEADERS = [
 
 let cachedUsers = null;
 let cachedAt = 0;
-
-function requiredEnv(name) {
-  const value = process.env[name];
-  if (!value) {
-    throw new Error(`${name} is required.`);
-  }
-  return value;
-}
-
-function getPrivateKey() {
-  return requiredEnv("GOOGLE_PRIVATE_KEY").replace(/\\n/g, "\n");
-}
-
-function getSheetsClient() {
-  const auth = new google.auth.JWT({
-    email: requiredEnv("GOOGLE_CLIENT_EMAIL"),
-    key: getPrivateKey(),
-    scopes: ["https://www.googleapis.com/auth/spreadsheets"],
-  });
-
-  return google.sheets({ version: "v4", auth });
-}
 
 function getRange() {
   return `${USER_SHEET_NAME}!A:J`;
