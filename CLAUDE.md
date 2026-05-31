@@ -1,29 +1,32 @@
 # Shipment Analytic Dashboard
 
-Shipment analytics dashboard — React frontend + Express API, backed by Google Sheets as the data source and user store.
+Shipment analytics dashboard — React frontend + Vercel Serverless Functions, backed by Google Sheets as the data source and user store.
 
 ## Stack
 
 | Layer | Tech |
 |-------|------|
 | Frontend | React 19, Recharts, custom CSS (DM Sans + IBM Plex Mono) |
-| Backend | Express 5, session-based JWT auth (jose + bcryptjs) |
+| Backend | Vercel Serverless Functions (Express-compatible req/res) |
+| Auth | Session-based JWT (jose + bcryptjs), HttpOnly cookies |
 | Data | Google Sheets API (googleapis) — shipment data + user credentials |
 | Build | Vite 7 |
 | Test | Vitest 4 (unit + API) · Playwright 1.60 (E2E) |
 | CI | GitHub Actions — lint, unit/API, build, E2E |
-| Deploy | Docker (nginx frontend, optional Express backend) |
+| Deploy | Vercel (primary) · Docker (alternative) |
 
 ## Commands
 
 ```bash
 npm install              # install deps
 npm run dev              # Vite dev server (port 5173, proxies /api → :3001)
-npm run dev:server       # Express API (port 3001)
+npm run dev:server       # Express API (port 3001) — local dev only
 npm run build            # production build → dist/
 npm test                 # unit + API tests (vitest)
 npm run test:e2e         # E2E tests (Playwright, chromium)
 npm run hash-password -- <pw>  # generate bcrypt hash for user setup
+vercel                   # deploy to Vercel
+vercel --prod            # deploy to production
 ```
 
 Two terminals needed for local dev: `npm run dev` + `npm run dev:server`.
@@ -31,38 +34,43 @@ Two terminals needed for local dev: `npm run dev` + `npm run dev:server`.
 ## Project Structure
 
 ```
-├── api/                  # Express API
-│   ├── _lib/             # createApp factory, auth, googleSheets, session, users, workbook
+├── api/                  # Vercel Serverless Functions (auto-routed)
+│   ├── _lib/             # shared helpers (excluded from routing by _ prefix)
+│   │   ├── createApp.js  # Express factory (local dev only)
+│   │   ├── authHandlers.js, adminHandlers.js
+│   │   ├── googleSheets.js, session.js, http.js, users.js
+│   │   └── workbook.js   # data loading, filtering, analytics
 │   ├── auth/             # login, logout, session endpoints
 │   ├── admin/users/      # admin user CRUD (REST)
-│   └── workbook.js       # GET /api/workbook — shipment data
+│   ├── health.js         # GET /api/health
+│   ├── workbook.js       # GET /api/workbook
+│   ├── metadata.js       # GET /api/metadata
+│   ├── shipments.js      # GET /api/shipments
+│   └── analytics.js      # GET /api/analytics
 ├── src/                  # React frontend
-│   ├── components/       # UI components (14 files, decomposed from monolith)
-│   │   ├── LoginScreen.jsx, Sidebar.jsx, HeroPanel.jsx
-│   │   ├── KpiCard.jsx, OverviewKpis.jsx, InsightTile.jsx
-│   │   ├── ChartCard.jsx, DetailAnalysis.jsx, DetailKpi.jsx
-│   │   ├── ShipmentTable.jsx, TopListCard.jsx, TopRankings.jsx
-│   │   ├── AdminUsers.jsx, SearchableMultiSelect.jsx, ChipMultiSelect.jsx
+│   ├── components/       # UI components
+│   ├── pages/            # page components (lazy-loaded)
 │   └── lib/              # dashboard.js (transforms), loadWorkbook.js, api.js, constants.js, utils.js
-│   ├── styles.css        # global styles
-│   ├── App.jsx           # orchestrator — state management, routing, layout
-│   └── main.jsx          # entry point
 ├── tests/e2e/            # Playwright specs
 ├── scripts/              # hash-password utility
 ├── docs/                 # design reference, devops guide, test plan
-├── server.js             # Express entry point
+├── server.js             # Express entry point (local dev only)
+├── vercel.json           # Vercel config — build, output, SPA rewrites
 ├── vite.config.js        # Vite + Vitest config, dev proxy
-├── docker-compose.yml    # Docker orchestration
-├── Dockerfile            # Multi-stage build (node → nginx)
+├── docker-compose.yml    # Docker orchestration (alternative deploy)
+├── Dockerfile            # Multi-stage build (alternative deploy)
 └── .github/workflows/    # CI pipeline (tests.yml)
 ```
 
 ## Architecture
 
 - **App.jsx** is the orchestrator — owns all state, delegates rendering to components
-- **api/_lib/createApp.js** is the Express factory — composes middleware, auth, routes
+- **api/** contains Vercel Serverless Functions — each file is an independent endpoint
+- **api/_lib/** contains shared logic (excluded from routing by `_` prefix)
+- **api/_lib/createApp.js** + **server.js** provide Express for local development only
 - **Google Sheets** serves dual purpose: user authentication table + shipment data source
-- **Vite dev proxy** routes `/api` to Express in development; nginx handles this in production
+- **Vite dev proxy** routes `/api` to Express in development
+- **Pages are lazy-loaded** via `React.lazy` — AnalyticsPage (Recharts) loads on demand
 
 ## API Endpoints
 
@@ -72,7 +80,10 @@ Two terminals needed for local dev: `npm run dev` + `npm run dev:server`.
 | POST | `/api/auth/login` | Session login |
 | POST | `/api/auth/logout` | Session logout |
 | GET | `/api/auth/session` | Session status |
-| GET | `/api/workbook` | Shipment data |
+| GET | `/api/workbook` | Full shipment data (authenticated) |
+| GET | `/api/metadata` | Data source metadata (authenticated) |
+| GET | `/api/shipments` | Filtered shipments with pagination (authenticated) |
+| GET | `/api/analytics` | Aggregated analytics (authenticated) |
 | GET | `/api/admin/users` | List users (admin) |
 | POST | `/api/admin/users` | Create user (admin) |
 | PATCH | `/api/admin/users/:id` | Update user (admin) |
@@ -131,6 +142,47 @@ npm install
 npm run dev          # terminal 1
 npm run dev:server   # terminal 2
 ```
+
+## Vercel Deployment
+
+```bash
+# First-time setup
+npm i -g vercel
+vercel login
+
+# Deploy (preview)
+vercel
+
+# Deploy (production)
+vercel --prod
+```
+
+### Required Vercel Environment Variables
+
+Set in Vercel Dashboard → Settings → Environment Variables:
+
+| Variable | Description |
+|----------|-------------|
+| `SESSION_SECRET` | JWT signing key (min 32 chars) |
+| `GOOGLE_SHEET_ID` | Google Sheets spreadsheet ID |
+| `GOOGLE_CLIENT_EMAIL` | Service account email |
+| `GOOGLE_PRIVATE_KEY` | Service account private key (full PEM) |
+| `USER_SHEET_NAME` | Users tab name (default: `Users`) |
+| `DATA_SHEET_NAME` | Data tab name (default: `Detail Data`) |
+| `VITE_API_BASE_URL` | Set to `/api` (same-origin) |
+
+### Vercel Configuration (`vercel.json`)
+
+- **Build command:** `npm run build` (Vite)
+- **Output directory:** `dist/`
+- **SPA rewrites:** all non-`/api/` routes → `index.html`
+- **API:** auto-detected from `api/` directory (files = endpoints)
+
+### Notes
+
+- `api/_lib/` is ignored by Vercel ( `_` prefix) — serves as shared helpers
+- In-memory cache in workbook.js is best-effort on serverless (persists on warm instances, resets on cold starts)
+- `server.js` and `createApp.js` are for local Express development only — not used by Vercel
 
 ## Current Scope
 

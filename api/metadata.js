@@ -1,5 +1,5 @@
 import { requireSession } from "./_lib/authHandlers.js";
-import { loadWorkbookData, serializeWorkbookData } from "./_lib/workbook.js";
+import { loadWorkbookData } from "./_lib/workbook.js";
 
 export default async function handler(req, res) {
   try {
@@ -12,9 +12,8 @@ export default async function handler(req, res) {
     if (!session) return;
 
     const data = await loadWorkbookData();
-    return res.status(200).json(serializeWorkbookData(data));
+    return res.status(200).json(data.metadata);
   } catch (error) {
-    const missingWorkbook = error.message.includes("Workbook not found");
-    return res.status(missingWorkbook ? 404 : 500).json({ error: error.message });
+    return res.status(500).json({ error: error.message });
   }
 }

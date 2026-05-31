@@ -9,6 +9,7 @@ import {
   filterRows,
   loadWorkbookData as defaultLoadWorkbookData,
   resolveWorkbookPath as defaultResolveWorkbookPath,
+  serializeRow,
   serializeWorkbookData,
 } from "./workbook.js";
 
@@ -102,20 +103,6 @@ export function createApp({
   }));
 
   return app;
-}
-
-function serializeRow(row) {
-  return {
-    ...row,
-    date: row.date ? row.date.toISOString() : null,
-  };
-}
-
-function sendError(res, error) {
-  const missingWorkbook = error.message.includes("Workbook not found");
-  res.status(missingWorkbook ? 404 : 500).json({
-    error: error.message,
-  });
 }
 
 function asyncHandler(handler) {

@@ -228,7 +228,7 @@ function getDateRange(rows) {
   };
 }
 
-function serializeRow(row) {
+export function serializeRow(row) {
   return {
     ...row,
     date: row.date ? row.date.toISOString() : null,

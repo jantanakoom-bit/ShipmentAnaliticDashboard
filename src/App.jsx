@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { lazy, Suspense, useEffect, useMemo, useState } from "react";
 import { Routes, Route, useLocation, Navigate, Link } from "react-router-dom";
 import { buildFilterOptions } from "./lib/dashboard";
 import { apiRequest } from "./lib/api";
@@ -19,10 +19,11 @@ import {
 
 import LoginScreen from "./components/LoginScreen";
 import NavSidebar from "./components/NavSidebar";
-import DashboardPage from "./pages/DashboardPage";
-import AnalyticsPage from "./pages/AnalyticsPage";
-import ShipmentsPage from "./pages/ShipmentsPage";
-import AdminPage from "./pages/AdminPage";
+
+const DashboardPage = lazy(() => import("./pages/DashboardPage"));
+const AnalyticsPage = lazy(() => import("./pages/AnalyticsPage"));
+const ShipmentsPage = lazy(() => import("./pages/ShipmentsPage"));
+const AdminPage = lazy(() => import("./pages/AdminPage"));
 
 export default function App() {
   const [state, setState] = useState({
@@ -368,7 +369,8 @@ function AppShell(props) {
         <div id="content">
           {props.state.error ? <div className="inline-error">{props.state.error}</div> : null}
 
-          <Routes>
+          <Suspense fallback={<div className="status-state">Loading page...</div>}>
+            <Routes>
             <Route
               path="/"
               element={
@@ -421,7 +423,8 @@ function AppShell(props) {
               element={<AdminPage currentUser={props.currentUser} />}
             />
             <Route path="*" element={<Navigate to="/" replace />} />
-          </Routes>
+            </Routes>
+          </Suspense>
         </div>
       </main>
     </div>
