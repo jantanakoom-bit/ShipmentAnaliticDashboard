@@ -25,9 +25,32 @@ npm run dev:server
 API endpoints:
 
 - `GET /api/health`
+- `POST /api/auth/login`
+- `POST /api/auth/logout`
+- `GET /api/auth/session`
+- `GET /api/workbook`
+- `GET /api/admin/users`
+- `POST /api/admin/users`
+- `PATCH /api/admin/users/:id`
 - `GET /api/metadata`
 - `GET /api/analytics?grain=quarter&year=2026`
 - `GET /api/shipments?limit=20&carrier=ONE`
+
+## Login Users
+
+Users are stored in a Google Sheet named `Users`. Add these headers in row 1:
+
+```text
+id,username,password_hash,role,display_name,status,created_at,updated_at,last_login_at,password_changed_at
+```
+
+Create an initial admin row manually. Generate the password hash with:
+
+```bash
+npm run hash-password -- your-admin-password
+```
+
+Use `role=admin` and `status=active`, then set Google/Vercel environment variables from `.env.example`.
 
 ## Docker
 
@@ -50,7 +73,7 @@ See `docs/devops.md` for local deployment, environment variable, and smoke-test 
 
 - Loads `/public/data/Detail_Report_Format.xlsx`
 - Parses `Detail Data`, `Trade`, and `Carrier`
-- Includes a simple login gate
+- Includes server-side login with Google Sheets users
 - Supports period filters for `month`, `quarter`, and `year`
 - Builds a dashboard overview for:
   - shipment rows

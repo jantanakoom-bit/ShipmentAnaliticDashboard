@@ -1022,6 +1022,11 @@ export default function App() {
               >
                 Select All
               </button>
+              {currentUser?.role === "admin" ? (
+                <button className="btn-filter btn-all" type="button" onClick={() => setShowAdmin(true)}>
+                  Users
+                </button>
+              ) : null}
               <button className="btn-filter btn-reset" type="button" onClick={handleLogout}>
                 Logout
               </button>
@@ -1033,7 +1038,9 @@ export default function App() {
           <div id="topbar">
             <div>
               <div className="page-title">Shipment Analytics Dashboard</div>
-              <div className="page-sub">{getDateRange(filteredRows)}</div>
+              <div className="page-sub">
+                {getDateRange(filteredRows)} | Signed in as {currentUser?.displayName || currentUser?.username}
+              </div>
             </div>
             <div id="record-count" className="active-badge">
               {formatNumber(filteredRows.length)} records
@@ -1042,6 +1049,7 @@ export default function App() {
 
           <div id="content">
             {state.error ? <div className="inline-error">{state.error}</div> : null}
+            {showAdmin && currentUser?.role === "admin" ? <AdminUsers onClose={() => setShowAdmin(false)} /> : null}
 
             <section className="hero-panel">
               <div>

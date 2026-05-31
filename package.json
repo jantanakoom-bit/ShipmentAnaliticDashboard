@@ -9,6 +9,7 @@
     "build": "vite build",
     "preview": "vite preview",
     "start": "node server.js",
+    "hash-password": "node scripts/hash-password.js",
     "docker:build": "docker compose build frontend",
     "docker:up": "docker compose up frontend",
     "docker:down": "docker compose down"

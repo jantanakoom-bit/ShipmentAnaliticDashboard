@@ -184,6 +184,11 @@ button:hover {
   cursor: pointer;
 }
 
+.primary-button:disabled {
+  cursor: not-allowed;
+  opacity: 0.7;
+}
+
 .auth-error {
   margin: 0;
   color: var(--accent4);
@@ -921,6 +926,45 @@ button:hover {
   font-size: 12px;
 }
 
+.admin-panel {
+  margin-bottom: 24px;
+  padding: 20px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  background: var(--surface);
+  box-shadow: var(--shadow-sm);
+}
+
+.admin-head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 14px;
+}
+
+.admin-form {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr)) auto;
+  gap: 10px;
+  margin-bottom: 12px;
+}
+
+.admin-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.admin-message {
+  margin-bottom: 12px;
+}
+
+.admin-state {
+  box-shadow: none;
+  margin-bottom: 12px;
+}
+
 .table-toolbar {
   display: flex;
   align-items: center;
@@ -1155,9 +1199,14 @@ tbody td {
   }
 
   .table-toolbar,
-  .table-tools {
+  .table-tools,
+  .admin-head {
     flex-direction: column;
     align-items: stretch;
+  }
+
+  .admin-form {
+    grid-template-columns: 1fr;
   }
 
   .table-search {
