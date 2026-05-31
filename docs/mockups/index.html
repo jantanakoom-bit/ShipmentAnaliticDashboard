@@ -1,0 +1,66 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>ShipTrack — Redesign Mockups</title>
+<style>
+  * { box-sizing: border-box; margin: 0; }
+  body { font-family: "DM Sans", "Segoe UI", sans-serif; background: #0f172a; color: #e2e8f0; min-height: 100vh; display: flex; align-items: center; justify-content: center; }
+  .container { max-width: 800px; width: 100%; padding: 40px 24px; }
+  h1 { font-size: 32px; letter-spacing: -0.03em; margin-bottom: 8px; }
+  .sub { color: #94a3b8; font-size: 15px; margin-bottom: 40px; }
+  .grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); gap: 16px; }
+  a { display: block; padding: 24px 20px; background: #1e293b; border: 1px solid #334155; border-radius: 16px; text-decoration: none; color: #e2e8f0; transition: all 0.2s; }
+  a:hover { background: #334155; border-color: #0f766e; transform: translateY(-2px); box-shadow: 0 12px 32px rgba(15,118,110,0.15); }
+  .page-num { font-size: 10px; font-weight: 800; color: #0f766e; letter-spacing: 0.1em; text-transform: uppercase; margin-bottom: 8px; }
+  .page-title { font-size: 16px; font-weight: 700; margin-bottom: 4px; }
+  .page-desc { font-size: 12px; color: #94a3b8; line-height: 1.5; }
+  .badge { display: inline-block; padding: 2px 8px; border-radius: 20px; font-size: 10px; font-weight: 700; margin-top: 10px; }
+  .badge-new { background: rgba(15,118,110,0.2); color: #5eead4; }
+  .badge-improved { background: rgba(180,83,9,0.2); color: #fbbf24; }
+  .note { margin-top: 32px; padding: 16px; background: #1e293b; border: 1px solid #334155; border-radius: 12px; font-size: 12px; color: #94a3b8; line-height: 1.6; }
+</style>
+</head>
+<body>
+<div class="container">
+  <h1>ShipTrack Redesign</h1>
+  <p class="sub">5-page mockup — click each page to preview with mock data</p>
+  <div class="grid">
+    <a href="01-login.html">
+      <div class="page-num">Page 1</div>
+      <div class="page-title">Login</div>
+      <div class="page-desc">Auth screen with improved atmosphere</div>
+      <span class="badge badge-improved">Improved</span>
+    </a>
+    <a href="02-dashboard.html">
+      <div class="page-num">Page 2</div>
+      <div class="page-title">Dashboard</div>
+      <div class="page-desc">Executive overview — KPIs, trend, quick insights</div>
+      <span class="badge badge-new">New</span>
+    </a>
+    <a href="03-analytics.html">
+      <div class="page-num">Page 3</div>
+      <div class="page-title">Analytics</div>
+      <div class="page-desc">Deep dive — charts, breakdowns, tabbed rankings</div>
+      <span class="badge badge-new">New</span>
+    </a>
+    <a href="04-shipments.html">
+      <div class="page-num">Page 4</div>
+      <div class="page-title">Shipments</div>
+      <div class="page-desc">Row-level data with pagination & export</div>
+      <span class="badge badge-new">New</span>
+    </a>
+    <a href="05-admin.html">
+      <div class="page-num">Page 5</div>
+      <div class="page-title">Admin</div>
+      <div class="page-desc">User management — separate page</div>
+      <span class="badge badge-new">New</span>
+    </a>
+  </div>
+  <div class="note">
+    <strong style="color:#e2e8f0">How to review:</strong> Open each page in your browser. All pages use mock data and are fully interactive (sidebar collapse, tabs, pagination, chart hover). No server needed — just open the HTML files directly.
+  </div>
+</div>
+</body>
+</html>

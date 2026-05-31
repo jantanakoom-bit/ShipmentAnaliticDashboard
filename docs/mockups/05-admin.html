@@ -1,0 +1,335 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>ShipTrack — Admin Users (Mockup)</title>
+<link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;700;800;900&family=IBM+Plex+Mono:wght@500;700&display=swap" rel="stylesheet">
+<style>
+:root{--accent:#0f766e;--accent-light:#ccfbf1;--accent-dark:#115e59;--text:#17201f;--text-sec:#4d5d5a;--text-muted:#76827f;--border:#dde4e3;--surface:#fff;--surface2:#f7f8f8;--surface3:#eef4f3;--sidebar-w:280px;--header-h:64px;--radius:16px;--radius-sm:10px;--mono:'IBM Plex Mono','Cascadia Mono',monospace;--sans:'DM Sans','Segoe UI',sans-serif;}
+*{box-sizing:border-box;margin:0}
+body{font-family:var(--sans);background:var(--surface);color:var(--text);min-height:100vh}
+.app{display:flex;min-height:100vh}
+
+/* Admin uses nav sidebar, not filter sidebar */
+.sidebar{width:var(--sidebar-w);height:100vh;position:fixed;top:0;left:0;z-index:100;display:flex;flex-direction:column;background:rgba(255,255,255,0.97);border-right:1px solid var(--border);transition:width 0.3s;overflow:hidden}
+.sidebar.collapsed{width:64px}
+.sidebar.collapsed .hide-c{opacity:0;pointer-events:none}
+.sidebar.collapsed .nav-label,.sidebar.collapsed .nav-section-title{display:none}
+
+.sidebar-head{padding:18px 16px 14px;border-bottom:1px solid var(--border);display:flex;align-items:center;justify-content:space-between}
+.brand{display:flex;align-items:center;gap:10px}
+.brand-icon{width:36px;height:36px;border-radius:10px;background:linear-gradient(135deg,#0f766e,#134e4a);display:flex;align-items:center;justify-content:center;color:#fff;font-size:13px;font-weight:900;flex-shrink:0}
+.brand-name{font-size:15px;font-weight:800;line-height:1.2}
+.brand-sub{font-size:9px;color:var(--text-muted);letter-spacing:0.1em;text-transform:uppercase}
+.collapse-btn{width:28px;height:28px;border:1px solid var(--border);border-radius:8px;background:var(--surface2);cursor:pointer;display:flex;align-items:center;justify-content:center;color:var(--text-muted);font-size:14px;flex-shrink:0;transition:background 0.15s}
+.collapse-btn:hover{background:var(--surface3)}
+
+.nav{padding:12px 10px;flex:1}
+.nav-section{margin-bottom:16px}
+.nav-section-title{font-size:9px;font-weight:800;color:var(--text-muted);letter-spacing:0.1em;text-transform:uppercase;padding:0 8px;margin-bottom:6px}
+.nav-item{display:flex;align-items:center;gap:10px;padding:9px 10px;border-radius:var(--radius-sm);color:var(--text-sec);font-size:13px;font-weight:600;cursor:pointer;transition:all 0.15s;text-decoration:none}
+.nav-item:hover{background:var(--surface2);color:var(--text)}
+.nav-item.active{background:var(--accent-light);color:var(--accent-dark);font-weight:700}
+.nav-icon{width:20px;text-align:center;font-size:15px;flex-shrink:0}
+
+/* User info in sidebar */
+.sidebar-footer{padding:14px 16px;border-top:1px solid var(--border);display:flex;align-items:center;gap:10px}
+.user-avatar{width:32px;height:32px;border-radius:50%;background:var(--accent);color:#fff;display:flex;align-items:center;justify-content:center;font-size:12px;font-weight:800;flex-shrink:0}
+.user-name{font-size:12px;font-weight:700}
+.user-role{font-size:10px;color:var(--text-muted)}
+.logout-link{font-size:11px;color:var(--accent);font-weight:700;cursor:pointer;text-decoration:none;margin-left:auto}
+.logout-link:hover{text-decoration:underline}
+
+.main{margin-left:var(--sidebar-w);flex:1;display:flex;flex-direction:column;min-height:100vh;transition:margin-left 0.3s}
+.sidebar.collapsed~.main{margin-left:64px}
+
+.topbar{height:var(--header-h);background:rgba(255,255,255,0.92);border-bottom:1px solid var(--border);backdrop-filter:blur(12px);display:flex;align-items:center;justify-content:space-between;padding:0 28px;position:sticky;top:0;z-index:50}
+.breadcrumb{display:flex;align-items:center;gap:6px;font-size:12px;color:var(--text-muted)}
+.breadcrumb b{color:var(--text);font-weight:700}
+
+.content{padding:24px 28px;flex:1;max-width:1680px;width:100%}
+
+/* Admin Section */
+.admin-header{display:flex;align-items:center;justify-content:space-between;margin-bottom:24px}
+.admin-title{font-size:22px;font-weight:800;letter-spacing:-0.02em}
+.admin-sub{font-size:13px;color:var(--text-muted);margin-top:2px}
+
+/* Stats */
+.stats-row{display:grid;grid-template-columns:repeat(4,1fr);gap:14px;margin-bottom:24px}
+.stat-card{padding:16px 18px;background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);display:flex;align-items:center;gap:14px}
+.stat-icon{width:40px;height:40px;border-radius:10px;display:flex;align-items:center;justify-content:center;font-size:18px;flex-shrink:0}
+.stat-label{font-size:10px;font-weight:800;color:var(--text-muted);text-transform:uppercase;letter-spacing:0.06em}
+.stat-value{font-size:24px;font-weight:800;font-family:var(--mono);line-height:1}
+.stat-sub{font-size:10px;color:var(--text-muted);margin-top:2px}
+
+/* Add User Form */
+.form-card{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);padding:20px;margin-bottom:24px}
+.form-title{font-size:14px;font-weight:800;margin-bottom:14px}
+.form-row{display:grid;grid-template-columns:1fr 1fr 1fr 120px auto;gap:10px;align-items:end}
+.form-group{display:flex;flex-direction:column;gap:4px}
+.form-label{font-size:10px;font-weight:800;color:var(--text-muted);text-transform:uppercase;letter-spacing:0.06em}
+.form-input{padding:9px 12px;border:1px solid var(--border);border-radius:var(--radius-sm);background:var(--surface2);font-size:13px;font-family:inherit;transition:border-color 0.15s}
+.form-input:focus{outline:none;border-color:var(--accent);box-shadow:0 0 0 3px rgba(15,118,110,0.12)}
+.form-select{padding:9px 12px;border:1px solid var(--border);border-radius:var(--radius-sm);background:var(--surface2);font-size:13px;font-family:inherit;cursor:pointer}
+.btn{padding:9px 16px;border:0;border-radius:var(--radius-sm);font-size:12px;font-weight:700;cursor:pointer;font-family:inherit;transition:all 0.15s}
+.btn-primary{background:var(--accent);color:#fff}
+.btn-primary:hover{background:var(--accent-dark);transform:translateY(-1px)}
+.btn-sm{padding:4px 10px;font-size:10px;font-weight:700;border-radius:6px;border:1px solid;cursor:pointer;font-family:inherit}
+.btn-role{background:var(--accent-light);color:var(--accent);border-color:#b7dfd8}
+.btn-role:hover{background:var(--accent);color:#fff}
+.btn-reset{background:#fef3c7;color:#92400e;border-color:#fde68a}
+.btn-reset:hover{background:#f59e0b;color:#fff}
+.btn-disable{background:#fee2e2;color:#b42318;border-color:#fecaca}
+.btn-disable:hover{background:#b42318;color:#fff}
+.btn-enable{background:#d1fae5;color:#065f46;border-color:#a7f3d0}
+.btn-enable:hover{background:#059669;color:#fff}
+
+/* Users Table */
+.table-card{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);overflow:hidden}
+.table-wrap{overflow-x:auto}
+table{width:100%;border-collapse:collapse;font-size:13px}
+thead th{padding:12px 16px;text-align:left;font-size:10px;font-weight:800;color:var(--text-muted);text-transform:uppercase;letter-spacing:0.06em;border-bottom:2px solid var(--border);background:var(--surface);position:sticky;top:0}
+tbody tr{border-bottom:1px solid var(--border);transition:background 0.1s}
+tbody tr:hover{background:#f6faf9}
+tbody td{padding:12px 16px;white-space:nowrap}
+.actions{display:flex;gap:6px;flex-wrap:wrap}
+
+.status-badge{display:inline-flex;align-items:center;gap:4px;padding:3px 10px;border-radius:12px;font-size:11px;font-weight:700}
+.status-active{background:#d1fae5;color:#065f46}
+.status-disabled{background:#fee2e2;color:#991b1b}
+.status-dot{width:6px;height:6px;border-radius:50%;display:inline-block}
+.status-active .status-dot{background:#059669}
+.status-disabled .status-dot{background:#ef4444}
+
+.role-badge{padding:3px 10px;border-radius:12px;font-size:11px;font-weight:700}
+.role-admin{background:#dbeafe;color:#1d4ed8}
+.role-user{background:var(--surface2);color:var(--text-sec)}
+
+.msg-toast{position:fixed;top:20px;right:20px;padding:12px 20px;background:var(--accent);color:#fff;border-radius:var(--radius-sm);font-size:13px;font-weight:600;box-shadow:0 8px 24px rgba(15,118,110,0.3);z-index:200;transform:translateY(-20px);opacity:0;transition:all 0.3s}
+.msg-toast.show{transform:translateY(0);opacity:1}
+
+.mock-nav{position:fixed;bottom:16px;left:50%;transform:translateX(-50%);z-index:100;padding:8px 16px;background:rgba(15,23,42,0.9);backdrop-filter:blur(8px);border-radius:12px;display:flex;gap:8px;font-size:11px}
+.mock-nav a{color:#94a3b8;text-decoration:none;padding:4px 10px;border-radius:6px;transition:all 0.15s}
+.mock-nav a:hover,.mock-nav a.active{color:#fff;background:rgba(255,255,255,0.1)}
+.mock-nav a.active{background:var(--accent)}
+</style>
+</head>
+<body>
+<div class="app">
+  <aside class="sidebar" id="sidebar">
+    <div class="sidebar-head">
+      <div class="brand"><div class="brand-icon">ST</div><div class="brand-text"><div class="brand-name hide-c">ShipTrack</div><div class="brand-sub hide-c">Logistics Intelligence</div></div></div>
+      <button class="collapse-btn" onclick="document.getElementById('sidebar').classList.toggle('collapsed')">◀</button>
+    </div>
+    <nav class="nav">
+      <div class="nav-section">
+        <div class="nav-section-title hide-c">Pages</div>
+        <a class="nav-item" href="02-dashboard.html"><span class="nav-icon">📊</span><span class="nav-label">Dashboard</span></a>
+        <a class="nav-item" href="03-analytics.html"><span class="nav-icon">📈</span><span class="nav-label">Analytics</span></a>
+        <a class="nav-item" href="04-shipments.html"><span class="nav-icon">📋</span><span class="nav-label">Shipments</span></a>
+        <a class="nav-item active" href="05-admin.html"><span class="nav-icon">⚙️</span><span class="nav-label">Admin</span></a>
+      </div>
+    </nav>
+    <div class="sidebar-footer">
+      <div class="user-avatar">P</div>
+      <div class="hide-c">
+        <div class="user-name">Pan</div>
+        <div class="user-role">Administrator</div>
+      </div>
+      <a class="logout-link hide-c" href="01-login.html">Logout</a>
+    </div>
+  </aside>
+
+  <main class="main">
+    <div class="topbar">
+      <div class="breadcrumb"><span>ShipTrack</span><span>/</span><b>Admin</b><span>/</span><span>User Management</span></div>
+    </div>
+    <div class="content">
+      <div class="admin-header">
+        <div>
+          <div class="admin-title">User Management</div>
+          <div class="admin-sub">Manage Google Sheet users and access status</div>
+        </div>
+      </div>
+
+      <!-- Stats -->
+      <div class="stats-row">
+        <div class="stat-card">
+          <div class="stat-icon" style="background:#dbeafe;color:#1d4ed8">👥</div>
+          <div><div class="stat-label">Total Users</div><div class="stat-value">8</div><div class="stat-sub">Registered accounts</div></div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-icon" style="background:#d1fae5;color:#065f46">✅</div>
+          <div><div class="stat-label">Active</div><div class="stat-value">6</div><div class="stat-sub">Currently enabled</div></div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-icon" style="background:#fef3c7;color:#92400e">🔑</div>
+          <div><div class="stat-label">Admins</div><div class="stat-value">2</div><div class="stat-sub">Full access</div></div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-icon" style="background:#fee2e2;color:#991b1b">🚫</div>
+          <div><div class="stat-label">Disabled</div><div class="stat-value">2</div><div class="stat-sub">Access revoked</div></div>
+        </div>
+      </div>
+
+      <!-- Add User Form -->
+      <div class="form-card">
+        <div class="form-title">Add New User</div>
+        <div class="form-row">
+          <div class="form-group">
+            <label class="form-label">Username</label>
+            <input class="form-input" type="text" placeholder="e.g. john.doe">
+          </div>
+          <div class="form-group">
+            <label class="form-label">Display Name</label>
+            <input class="form-input" type="text" placeholder="e.g. John Doe">
+          </div>
+          <div class="form-group">
+            <label class="form-label">Password</label>
+            <input class="form-input" type="password" placeholder="Initial password">
+          </div>
+          <div class="form-group">
+            <label class="form-label">Role</label>
+            <select class="form-select">
+              <option value="user">User</option>
+              <option value="admin">Admin</option>
+            </select>
+          </div>
+          <button class="btn btn-primary" onclick="showToast('User created successfully')">Add User</button>
+        </div>
+      </div>
+
+      <!-- Users Table -->
+      <div class="table-card">
+        <div class="table-wrap">
+          <table>
+            <thead>
+              <tr>
+                <th>Username</th>
+                <th>Display Name</th>
+                <th>Role</th>
+                <th>Status</th>
+                <th>Last Login</th>
+                <th>Actions</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr>
+                <td style="font-weight:600">pan</td>
+                <td>Pan</td>
+                <td><span class="role-badge role-admin">admin</span></td>
+                <td><span class="status-badge status-active"><span class="status-dot"></span> Active</span></td>
+                <td style="font-family:var(--mono);font-size:12px;color:var(--text-sec)">2025-05-31 16:20</td>
+                <td><div class="actions">
+                  <button class="btn-sm btn-role">Role</button>
+                  <button class="btn-sm btn-reset">Reset</button>
+                </div></td>
+              </tr>
+              <tr>
+                <td style="font-weight:600">boworn</td>
+                <td>Boworn</td>
+                <td><span class="role-badge role-admin">admin</span></td>
+                <td><span class="status-badge status-active"><span class="status-dot"></span> Active</span></td>
+                <td style="font-family:var(--mono);font-size:12px;color:var(--text-sec)">2025-05-30 09:15</td>
+                <td><div class="actions">
+                  <button class="btn-sm btn-role">Role</button>
+                  <button class="btn-sm btn-reset">Reset</button>
+                </div></td>
+              </tr>
+              <tr>
+                <td style="font-weight:600">sarah.chen</td>
+                <td>Sarah Chen</td>
+                <td><span class="role-badge role-user">user</span></td>
+                <td><span class="status-badge status-active"><span class="status-dot"></span> Active</span></td>
+                <td style="font-family:var(--mono);font-size:12px;color:var(--text-sec)">2025-05-29 14:32</td>
+                <td><div class="actions">
+                  <button class="btn-sm btn-role">Role</button>
+                  <button class="btn-sm btn-reset">Reset</button>
+                  <button class="btn-sm btn-disable">Disable</button>
+                </div></td>
+              </tr>
+              <tr>
+                <td style="font-weight:600">mike.torres</td>
+                <td>Mike Torres</td>
+                <td><span class="role-badge role-user">user</span></td>
+                <td><span class="status-badge status-active"><span class="status-dot"></span> Active</span></td>
+                <td style="font-family:var(--mono);font-size:12px;color:var(--text-sec)">2025-05-28 11:45</td>
+                <td><div class="actions">
+                  <button class="btn-sm btn-role">Role</button>
+                  <button class="btn-sm btn-reset">Reset</button>
+                  <button class="btn-sm btn-disable">Disable</button>
+                </div></td>
+              </tr>
+              <tr>
+                <td style="font-weight:600">lisa.park</td>
+                <td>Lisa Park</td>
+                <td><span class="role-badge role-user">user</span></td>
+                <td><span class="status-badge status-active"><span class="status-dot"></span> Active</span></td>
+                <td style="font-family:var(--mono);font-size:12px;color:var(--text-sec)">2025-05-27 16:08</td>
+                <td><div class="actions">
+                  <button class="btn-sm btn-role">Role</button>
+                  <button class="btn-sm btn-reset">Reset</button>
+                  <button class="btn-sm btn-disable">Disable</button>
+                </div></td>
+              </tr>
+              <tr>
+                <td style="font-weight:600">james.w</td>
+                <td>James Wilson</td>
+                <td><span class="role-badge role-user">user</span></td>
+                <td><span class="status-badge status-active"><span class="status-dot"></span> Active</span></td>
+                <td style="font-family:var(--mono);font-size:12px;color:var(--text-sec)">2025-05-25 08:30</td>
+                <td><div class="actions">
+                  <button class="btn-sm btn-role">Role</button>
+                  <button class="btn-sm btn-reset">Reset</button>
+                  <button class="btn-sm btn-disable">Disable</button>
+                </div></td>
+              </tr>
+              <tr>
+                <td style="font-weight:600">anna.kim</td>
+                <td>Anna Kim</td>
+                <td><span class="role-badge role-user">user</span></td>
+                <td><span class="status-badge status-disabled"><span class="status-dot"></span> Disabled</span></td>
+                <td style="font-family:var(--mono);font-size:12px;color:var(--text-sec)">2025-05-10 12:00</td>
+                <td><div class="actions">
+                  <button class="btn-sm btn-role">Role</button>
+                  <button class="btn-sm btn-reset">Reset</button>
+                  <button class="btn-sm btn-enable">Enable</button>
+                </div></td>
+              </tr>
+              <tr>
+                <td style="font-weight:600">david.l</td>
+                <td>David Lopez</td>
+                <td><span class="role-badge role-user">user</span></td>
+                <td><span class="status-badge status-disabled"><span class="status-dot"></span> Disabled</span></td>
+                <td style="font-family:var(--mono);font-size:12px;color:var(--text-sec)">2025-04-28 09:22</td>
+                <td><div class="actions">
+                  <button class="btn-sm btn-role">Role</button>
+                  <button class="btn-sm btn-reset">Reset</button>
+                  <button class="btn-sm btn-enable">Enable</button>
+                </div></td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+  </main>
+</div>
+
+<div id="toast" class="msg-toast"></div>
+
+<div class="mock-nav">
+  <a href="index.html">Index</a><a href="01-login.html">Login</a><a href="02-dashboard.html">Dashboard</a><a href="03-analytics.html">Analytics</a><a href="04-shipments.html">Shipments</a><a href="05-admin.html" class="active">Admin</a>
+</div>
+
+<script>
+function showToast(msg) {
+  const t = document.getElementById('toast');
+  t.textContent = msg;
+  t.classList.add('show');
+  setTimeout(() => t.classList.remove('show'), 2500);
+}
+</script>
+</body>
+</html>

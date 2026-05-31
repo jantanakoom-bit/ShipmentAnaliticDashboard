@@ -1,0 +1,374 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>ShipTrack — Analytics (Mockup)</title>
+<link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;700;800;900&family=IBM+Plex+Mono:wght@500;700&display=swap" rel="stylesheet">
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.7/dist/chart.umd.min.js"></script>
+<style>
+:root{--accent:#0f766e;--accent-light:#ccfbf1;--accent-dark:#115e59;--text:#17201f;--text-sec:#4d5d5a;--text-muted:#76827f;--border:#dde4e3;--surface:#fff;--surface2:#f7f8f8;--surface3:#eef4f3;--sidebar-w:280px;--header-h:64px;--radius:16px;--radius-sm:10px;--mono:'IBM Plex Mono','Cascadia Mono',monospace;--sans:'DM Sans','Segoe UI',sans-serif;}
+*{box-sizing:border-box;margin:0}
+body{font-family:var(--sans);background:var(--surface);color:var(--text);min-height:100vh}
+.app{display:flex;min-height:100vh}
+
+/* Sidebar - same as dashboard but full filters */
+.sidebar{width:var(--sidebar-w);height:100vh;position:fixed;top:0;left:0;z-index:100;display:flex;flex-direction:column;background:rgba(255,255,255,0.97);border-right:1px solid var(--border);transition:width 0.3s;overflow:hidden}
+.sidebar.collapsed{width:64px}
+.sidebar.collapsed .hide-c{opacity:0;pointer-events:none}
+.sidebar.collapsed .nav-label{display:none}
+.sidebar.collapsed .filter-section,.sidebar.collapsed .filter-divider,.sidebar.collapsed .nav-section-title{display:none}
+
+.sidebar-head{padding:18px 16px 14px;border-bottom:1px solid var(--border);display:flex;align-items:center;justify-content:space-between}
+.brand{display:flex;align-items:center;gap:10px}
+.brand-icon{width:36px;height:36px;border-radius:10px;background:linear-gradient(135deg,#0f766e,#134e4a);display:flex;align-items:center;justify-content:center;color:#fff;font-size:13px;font-weight:900;flex-shrink:0}
+.brand-name{font-size:15px;font-weight:800;line-height:1.2}
+.brand-sub{font-size:9px;color:var(--text-muted);letter-spacing:0.1em;text-transform:uppercase}
+.collapse-btn{width:28px;height:28px;border:1px solid var(--border);border-radius:8px;background:var(--surface2);cursor:pointer;display:flex;align-items:center;justify-content:center;color:var(--text-muted);font-size:14px;flex-shrink:0;transition:background 0.15s}
+.collapse-btn:hover{background:var(--surface3)}
+
+.nav{padding:12px 10px;overflow-y:auto;flex:1}
+.nav-section{margin-bottom:12px}
+.nav-section-title{font-size:9px;font-weight:800;color:var(--text-muted);letter-spacing:0.1em;text-transform:uppercase;padding:0 8px;margin-bottom:6px}
+.nav-item{display:flex;align-items:center;gap:10px;padding:9px 10px;border-radius:var(--radius-sm);color:var(--text-sec);font-size:13px;font-weight:600;cursor:pointer;transition:all 0.15s;text-decoration:none}
+.nav-item:hover{background:var(--surface2);color:var(--text)}
+.nav-item.active{background:var(--accent-light);color:var(--accent-dark);font-weight:700}
+.nav-icon{width:20px;text-align:center;font-size:15px;flex-shrink:0}
+
+.filter-divider{height:1px;background:var(--border);margin:8px 10px 12px}
+.filter-section{padding:0 10px 10px}
+.filter-label{font-size:9px;font-weight:800;color:var(--text-muted);letter-spacing:0.08em;text-transform:uppercase;margin-bottom:5px}
+.chip-row{display:flex;flex-wrap:wrap;gap:4px}
+.chip{padding:3px 8px;border:1px solid var(--border);border-radius:14px;font-size:10px;font-weight:600;background:var(--surface2);color:var(--text-sec);cursor:pointer;transition:all 0.12s}
+.chip:hover{border-color:var(--accent)}
+.chip.on{background:var(--accent);border-color:var(--accent);color:#fff}
+
+.multi-sel{border:1px solid var(--border);border-radius:var(--radius-sm);overflow:hidden;margin-bottom:10px}
+.multi-sel-head{padding:6px 10px;border-bottom:1px solid var(--border);background:var(--surface2)}
+.multi-sel-title{font-size:10px;font-weight:800;text-transform:uppercase;letter-spacing:0.06em;color:var(--text-sec)}
+.multi-sel-list{max-height:100px;overflow-y:auto;padding:4px}
+.ms-item{display:flex;align-items:center;gap:6px;padding:3px 5px;border-radius:4px;font-size:11px;cursor:pointer}
+.ms-item:hover{background:var(--surface3)}
+.ms-item input{accent-color:var(--accent);width:11px;height:11px}
+
+/* Main */
+.main{margin-left:var(--sidebar-w);flex:1;display:flex;flex-direction:column;min-height:100vh;transition:margin-left 0.3s}
+.sidebar.collapsed~.main{margin-left:64px}
+
+.topbar{height:var(--header-h);background:rgba(255,255,255,0.92);border-bottom:1px solid var(--border);backdrop-filter:blur(12px);display:flex;align-items:center;justify-content:space-between;padding:0 28px;position:sticky;top:0;z-index:50}
+.breadcrumb{display:flex;align-items:center;gap:6px;font-size:12px;color:var(--text-muted)}
+.breadcrumb b{color:var(--text);font-weight:700}
+.topbar-right{display:flex;align-items:center;gap:12px}
+
+/* Content */
+.content{padding:24px 28px;flex:1;max-width:1680px;width:100%}
+
+/* Filter Summary */
+.filter-summary{display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-bottom:20px}
+.filter-chip{display:inline-flex;align-items:center;gap:4px;padding:4px 10px;border:1px solid var(--border);border-radius:16px;font-size:11px;font-weight:600;background:var(--surface2)}
+.filter-chip b{font-family:var(--mono);font-size:10px}
+.filter-chip .x{cursor:pointer;color:var(--text-muted);font-weight:700;margin-left:2px}
+.filter-chip .x:hover{color:#b42318}
+
+/* KPI Strip */
+.kpi-strip{display:grid;grid-template-columns:repeat(6,1fr);gap:10px;margin-bottom:24px}
+.kpi{padding:14px 16px;background:var(--surface);border:1px solid var(--border);border-radius:var(--radius-sm);position:relative;overflow:hidden}
+.kpi::before{content:"";position:absolute;top:0;left:0;bottom:0;width:3px}
+.kpi:nth-child(1)::before{background:#0f766e}
+.kpi:nth-child(2)::before{background:#2563eb}
+.kpi:nth-child(3)::before{background:#059669}
+.kpi:nth-child(4)::before{background:#334155}
+.kpi:nth-child(5)::before{background:#7c3aed}
+.kpi:nth-child(6)::before{background:#b45309}
+.kpi-label{font-size:9px;font-weight:800;color:var(--text-muted);text-transform:uppercase;letter-spacing:0.06em;margin-bottom:4px}
+.kpi-value{font-size:20px;font-weight:800;font-family:var(--mono);line-height:1}
+.kpi-sub{font-size:9px;color:var(--text-muted);margin-top:2px}
+
+/* Charts */
+.section{margin-bottom:24px}
+.section-head{display:flex;align-items:center;justify-content:space-between;margin-bottom:14px}
+.section-title{font-size:13px;font-weight:800;text-transform:uppercase;letter-spacing:0.04em}
+.section-sub{font-size:11px;color:var(--text-muted)}
+
+.charts-grid{display:grid;grid-template-columns:1fr 1fr;gap:14px;margin-bottom:24px}
+.chart-card{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);padding:18px;transition:transform 0.2s,box-shadow 0.2s}
+.chart-card:hover{transform:translateY(-1px);box-shadow:0 12px 32px rgba(23,32,31,0.06)}
+.chart-title{font-size:13px;font-weight:800;margin-bottom:2px}
+.chart-sub{font-size:11px;color:var(--text-muted);margin-bottom:12px}
+.chart-wrap{position:relative;height:220px}
+
+/* Tabbed Rankings */
+.tabs{display:flex;gap:4px;margin-bottom:16px;border-bottom:2px solid var(--border);padding-bottom:0}
+.tab{padding:8px 16px;font-size:12px;font-weight:700;color:var(--text-muted);cursor:pointer;border-bottom:2px solid transparent;margin-bottom:-2px;transition:all 0.15s}
+.tab:hover{color:var(--text)}
+.tab.active{color:var(--accent);border-bottom-color:var(--accent)}
+.tab-content{display:none}
+.tab-content.active{display:block}
+
+.rank-list{list-style:none}
+.rank-item{display:flex;align-items:center;gap:10px;padding:8px 0;border-bottom:1px solid var(--border)}
+.rank-item:last-child{border-bottom:none}
+.rank-num{width:22px;height:22px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:10px;font-weight:800;flex-shrink:0}
+.rank-1{background:#fef9c3;color:#854d0e}
+.rank-2{background:#f1f5f9;color:#475569}
+.rank-3{background:#fff7ed;color:#c2410c}
+.rank-def{background:var(--surface2);color:var(--text-muted)}
+.rank-name{flex:1;font-size:12px;font-weight:600}
+.rank-bar-wrap{width:80px;height:5px;background:var(--surface2);border-radius:3px;overflow:hidden}
+.rank-bar{height:100%;border-radius:3px}
+.rank-val{font-size:11px;font-weight:700;font-family:var(--mono);min-width:50px;text-align:right;color:var(--text-sec)}
+
+/* Sale Cards */
+.sale-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(200px,1fr));gap:10px}
+.sale-card{background:var(--surface);border:1px solid var(--border);border-radius:12px;padding:14px;transition:transform 0.2s,box-shadow 0.2s}
+.sale-card:hover{transform:translateY(-2px);box-shadow:0 8px 24px rgba(23,32,31,0.08);border-left:3px solid var(--accent)}
+.sale-head{display:flex;justify-content:space-between;margin-bottom:8px}
+.sale-name{font-size:12px;font-weight:800}
+.sale-rank{font-size:10px;font-weight:700;color:var(--text-muted);font-family:var(--mono)}
+.sale-row{display:flex;justify-content:space-between;padding:3px 0;font-size:11px;border-bottom:1px solid var(--border)}
+.sale-row:last-of-type{border-bottom:none}
+.sale-label{font-size:9px;font-weight:800;text-transform:uppercase;letter-spacing:0.05em}
+.sale-val{font-family:var(--mono);font-weight:700;font-size:12px}
+.sale-progress{height:3px;background:var(--surface2);border-radius:2px;margin-top:8px;overflow:hidden}
+.sale-bar{height:100%;border-radius:2px;background:var(--accent)}
+
+.mock-nav{position:fixed;bottom:16px;left:50%;transform:translateX(-50%);z-index:100;padding:8px 16px;background:rgba(15,23,42,0.9);backdrop-filter:blur(8px);border-radius:12px;display:flex;gap:8px;font-size:11px}
+.mock-nav a{color:#94a3b8;text-decoration:none;padding:4px 10px;border-radius:6px;transition:all 0.15s}
+.mock-nav a:hover,.mock-nav a.active{color:#fff;background:rgba(255,255,255,0.1)}
+.mock-nav a.active{background:var(--accent)}
+</style>
+</head>
+<body>
+<div class="app">
+  <!-- Sidebar -->
+  <aside class="sidebar" id="sidebar">
+    <div class="sidebar-head">
+      <div class="brand">
+        <div class="brand-icon">ST</div>
+        <div class="brand-text">
+          <div class="brand-name hide-c">ShipTrack</div>
+          <div class="brand-sub hide-c">Logistics Intelligence</div>
+        </div>
+      </div>
+      <button class="collapse-btn" onclick="document.getElementById('sidebar').classList.toggle('collapsed')">◀</button>
+    </div>
+    <nav class="nav">
+      <div class="nav-section">
+        <div class="nav-section-title hide-c">Pages</div>
+        <a class="nav-item" href="02-dashboard.html"><span class="nav-icon">📊</span><span class="nav-label">Dashboard</span></a>
+        <a class="nav-item active" href="03-analytics.html"><span class="nav-icon">📈</span><span class="nav-label">Analytics</span></a>
+        <a class="nav-item" href="04-shipments.html"><span class="nav-icon">📋</span><span class="nav-label">Shipments</span></a>
+        <a class="nav-item" href="05-admin.html"><span class="nav-icon">⚙️</span><span class="nav-label">Admin</span></a>
+      </div>
+      <div class="filter-divider"></div>
+      <div class="nav-section">
+        <div class="nav-section-title hide-c">Filters</div>
+        <div class="filter-section">
+          <div class="filter-label">Quarter</div>
+          <div class="chip-row"><span class="chip on">Q1</span><span class="chip on">Q2</span><span class="chip">Q3</span><span class="chip">Q4</span></div>
+        </div>
+        <div class="filter-section">
+          <div class="filter-label">Month</div>
+          <div class="chip-row"><span class="chip on">Jan</span><span class="chip on">Feb</span><span class="chip on">Mar</span><span class="chip on">Apr</span><span class="chip on">May</span><span class="chip on">Jun</span><span class="chip">Jul</span><span class="chip">Aug</span><span class="chip">Sep</span><span class="chip">Oct</span><span class="chip">Nov</span><span class="chip">Dec</span></div>
+        </div>
+        <div class="filter-section">
+          <div class="filter-label">Year</div>
+          <div class="chip-row"><span class="chip">2024</span><span class="chip on">2025</span></div>
+        </div>
+      </div>
+      <div class="filter-divider"></div>
+      <div class="nav-section">
+        <div class="nav-section-title hide-c">Dimensions</div>
+        <div class="multi-sel">
+          <div class="multi-sel-head"><span class="multi-sel-title">Port (18)</span></div>
+          <div class="multi-sel-list">
+            <label class="ms-item"><input type="checkbox" checked>Singapore</label>
+            <label class="ms-item"><input type="checkbox" checked>Rotterdam</label>
+            <label class="ms-item"><input type="checkbox" checked>Shanghai</label>
+            <label class="ms-item"><input type="checkbox" checked>Busan</label>
+            <label class="ms-item"><input type="checkbox" checked>Hamburg</label>
+            <label class="ms-item"><input type="checkbox">Laem Chabang</label>
+          </div>
+        </div>
+        <div class="multi-sel">
+          <div class="multi-sel-head"><span class="multi-sel-title">Carrier (24)</span></div>
+          <div class="multi-sel-list">
+            <label class="ms-item"><input type="checkbox" checked>Maersk</label>
+            <label class="ms-item"><input type="checkbox" checked>MSC</label>
+            <label class="ms-item"><input type="checkbox" checked>CMA CGM</label>
+            <label class="ms-item"><input type="checkbox">COSCO</label>
+          </div>
+        </div>
+        <div class="multi-sel">
+          <div class="multi-sel-head"><span class="multi-sel-title">Country (14)</span></div>
+          <div class="multi-sel-list">
+            <label class="ms-item"><input type="checkbox" checked>Singapore</label>
+            <label class="ms-item"><input type="checkbox" checked>Netherlands</label>
+            <label class="ms-item"><input type="checkbox" checked>China</label>
+          </div>
+        </div>
+        <div class="multi-sel">
+          <div class="multi-sel-head"><span class="multi-sel-title">Trade (8)</span></div>
+          <div class="multi-sel-list">
+            <label class="ms-item"><input type="checkbox" checked>Asia-Europe</label>
+            <label class="ms-item"><input type="checkbox" checked>Intra-Asia</label>
+            <label class="ms-item"><input type="checkbox">Transpacific</label>
+          </div>
+        </div>
+        <div class="multi-sel">
+          <div class="multi-sel-head"><span class="multi-sel-title">Sale Name (6)</span></div>
+          <div class="multi-sel-list">
+            <label class="ms-item"><input type="checkbox" checked>Sarah Chen</label>
+            <label class="ms-item"><input type="checkbox" checked>Mike Torres</label>
+            <label class="ms-item"><input type="checkbox" checked>Lisa Park</label>
+          </div>
+        </div>
+      </div>
+    </nav>
+  </aside>
+
+  <!-- Main -->
+  <main class="main">
+    <div class="topbar">
+      <div class="breadcrumb"><span>ShipTrack</span><span>/</span><span>Analytics</span><span>/</span><b>Deep Dive</b></div>
+      <div class="topbar-right"><span style="font-size:11px;color:var(--text-muted)">All filters applied</span></div>
+    </div>
+    <div class="content">
+      <!-- Filter Summary -->
+      <div class="filter-summary">
+        <span style="font-size:11px;font-weight:800;color:var(--text-muted)">Active:</span>
+        <span class="filter-chip">2025 <span class="x">×</span></span>
+        <span class="filter-chip">Q1-Q2 <span class="x">×</span></span>
+        <span class="filter-chip">5 Ports <span class="x">×</span></span>
+        <span class="filter-chip">3 Carriers <span class="x">×</span></span>
+        <span class="filter-chip">3 Countries <span class="x">×</span></span>
+        <span class="filter-chip"><b>456 TEU</b></span>
+      </div>
+
+      <!-- Detail KPIs -->
+      <div class="kpi-strip">
+        <div class="kpi"><div class="kpi-label">Containers</div><div class="kpi-value">3,187</div><div class="kpi-sub">Total Qty</div></div>
+        <div class="kpi"><div class="kpi-label">20' Units</div><div class="kpi-value">1,845</div><div class="kpi-sub">TEU ×1</div></div>
+        <div class="kpi"><div class="kpi-label">40' Units</div><div class="kpi-value">1,342</div><div class="kpi-sub">TEU ×2</div></div>
+        <div class="kpi"><div class="kpi-label">TEU</div><div class="kpi-value">4,521</div><div class="kpi-sub">Total TEU</div></div>
+        <div class="kpi"><div class="kpi-label">Bookings</div><div class="kpi-value">312</div><div class="kpi-sub">Unique</div></div>
+        <div class="kpi"><div class="kpi-label">Jobs</div><div class="kpi-value">478</div><div class="kpi-sub">Unique</div></div>
+      </div>
+
+      <!-- Charts 2x2 -->
+      <div class="section">
+        <div class="section-head"><div><div class="section-title">Breakdown Charts</div><div class="section-sub">All filters applied · TEU volume</div></div></div>
+        <div class="charts-grid">
+          <div class="chart-card">
+            <div class="chart-title">TEU by Carrier</div><div class="chart-sub">Top carriers by TEU volume</div>
+            <div class="chart-wrap"><canvas id="carrierChart"></canvas></div>
+          </div>
+          <div class="chart-card">
+            <div class="chart-title">TEU by Country</div><div class="chart-sub">Top destination countries</div>
+            <div class="chart-wrap"><canvas id="countryChart"></canvas></div>
+          </div>
+          <div class="chart-card">
+            <div class="chart-title">TEU by Trade Route</div><div class="chart-sub">Top trade routes</div>
+            <div class="chart-wrap"><canvas id="tradeChart"></canvas></div>
+          </div>
+          <div class="chart-card">
+            <div class="chart-title">Volume by Sale Name</div><div class="chart-sub">TEU per salesperson</div>
+            <div class="chart-wrap"><canvas id="salesChart"></canvas></div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Tabbed Rankings -->
+      <div class="section">
+        <div class="section-head"><div><div class="section-title">Top 10 Rankings</div><div class="section-sub">Select category to view</div></div></div>
+        <div class="tabs">
+          <div class="tab active" onclick="switchTab(event,'ports')">Ports</div>
+          <div class="tab" onclick="switchTab(event,'carriers')">Carriers</div>
+          <div class="tab" onclick="switchTab(event,'countries')">Countries</div>
+          <div class="tab" onclick="switchTab(event,'routes')">Trade Routes</div>
+          <div class="tab" onclick="switchTab(event,'sales')">Sales</div>
+        </div>
+
+        <div id="tab-ports" class="tab-content active">
+          <ul class="rank-list">
+            <li class="rank-item"><span class="rank-num rank-1">1</span><span class="rank-name">Singapore</span><div class="rank-bar-wrap"><div class="rank-bar" style="width:100%;background:#2563eb"></div></div><span class="rank-val">1,234</span></li>
+            <li class="rank-item"><span class="rank-num rank-2">2</span><span class="rank-name">Rotterdam</span><div class="rank-bar-wrap"><div class="rank-bar" style="width:80%;background:#2563eb"></div></div><span class="rank-val">987</span></li>
+            <li class="rank-item"><span class="rank-num rank-3">3</span><span class="rank-name">Shanghai</span><div class="rank-bar-wrap"><div class="rank-bar" style="width:61%;background:#2563eb"></div></div><span class="rank-val">756</span></li>
+            <li class="rank-item"><span class="rank-num rank-def">4</span><span class="rank-name">Busan</span><div class="rank-bar-wrap"><div class="rank-bar" style="width:48%;background:#94a3b8"></div></div><span class="rank-val">598</span></li>
+            <li class="rank-item"><span class="rank-num rank-def">5</span><span class="rank-name">Hamburg</span><div class="rank-bar-wrap"><div class="rank-bar" style="width:39%;background:#94a3b8"></div></div><span class="rank-val">482</span></li>
+            <li class="rank-item"><span class="rank-num rank-def">6</span><span class="rank-name">Laem Chabang</span><div class="rank-bar-wrap"><div class="rank-bar" style="width:32%;background:#94a3b8"></div></div><span class="rank-val">398</span></li>
+            <li class="rank-item"><span class="rank-num rank-def">7</span><span class="rank-name">Tanjung Pelepas</span><div class="rank-bar-wrap"><div class="rank-bar" style="width:25%;background:#94a3b8"></div></div><span class="rank-val">312</span></li>
+            <li class="rank-item"><span class="rank-num rank-def">8</span><span class="rank-name">Antwerp</span><div class="rank-bar-wrap"><div class="rank-bar" style="width:19%;background:#94a3b8"></div></div><span class="rank-val">234</span></li>
+            <li class="rank-item"><span class="rank-num rank-def">9</span><span class="rank-name">Felixstowe</span><div class="rank-bar-wrap"><div class="rank-bar" style="width:14%;background:#94a3b8"></div></div><span class="rank-val">176</span></li>
+            <li class="rank-item"><span class="rank-num rank-def">10</span><span class="rank-name">Colombo</span><div class="rank-bar-wrap"><div class="rank-bar" style="width:9%;background:#94a3b8"></div></div><span class="rank-val">112</span></li>
+          </ul>
+        </div>
+        <div id="tab-carriers" class="tab-content">
+          <ul class="rank-list">
+            <li class="rank-item"><span class="rank-num rank-1">1</span><span class="rank-name">Maersk</span><div class="rank-bar-wrap"><div class="rank-bar" style="width:100%;background:#7c3aed"></div></div><span class="rank-val">892</span></li>
+            <li class="rank-item"><span class="rank-num rank-2">2</span><span class="rank-name">MSC</span><div class="rank-bar-wrap"><div class="rank-bar" style="width:82%;background:#7c3aed"></div></div><span class="rank-val">734</span></li>
+            <li class="rank-item"><span class="rank-num rank-3">3</span><span class="rank-name">CMA CGM</span><div class="rank-bar-wrap"><div class="rank-bar" style="width:70%;background:#7c3aed"></div></div><span class="rank-val">621</span></li>
+            <li class="rank-item"><span class="rank-num rank-def">4</span><span class="rank-name">COSCO</span><div class="rank-bar-wrap"><div class="rank-bar" style="width:52%;background:#94a3b8"></div></div><span class="rank-val">463</span></li>
+            <li class="rank-item"><span class="rank-num rank-def">5</span><span class="rank-name">Hapag-Lloyd</span><div class="rank-bar-wrap"><div class="rank-bar" style="width:41%;background:#94a3b8"></div></div><span class="rank-val">367</span></li>
+            <li class="rank-item"><span class="rank-num rank-def">6</span><span class="rank-name">ONE</span><div class="rank-bar-wrap"><div class="rank-bar" style="width:34%;background:#94a3b8"></div></div><span class="rank-val">301</span></li>
+            <li class="rank-item"><span class="rank-num rank-def">7</span><span class="rank-name">Evergreen</span><div class="rank-bar-wrap"><div class="rank-bar" style="width:28%;background:#94a3b8"></div></div><span class="rank-val">248</span></li>
+            <li class="rank-item"><span class="rank-num rank-def">8</span><span class="rank-name">Yang Ming</span><div class="rank-bar-wrap"><div class="rank-bar" style="width:18%;background:#94a3b8"></div></div><span class="rank-val">162</span></li>
+          </ul>
+        </div>
+        <div id="tab-countries" class="tab-content">
+          <ul class="rank-list">
+            <li class="rank-item"><span class="rank-num rank-1">1</span><span class="rank-name">Singapore</span><div class="rank-bar-wrap"><div class="rank-bar" style="width:100%;background:#059669"></div></div><span class="rank-val">1,234</span></li>
+            <li class="rank-item"><span class="rank-num rank-2">2</span><span class="rank-name">Netherlands</span><div class="rank-bar-wrap"><div class="rank-bar" style="width:80%;background:#059669"></div></div><span class="rank-val">987</span></li>
+            <li class="rank-item"><span class="rank-num rank-3">3</span><span class="rank-name">China</span><div class="rank-bar-wrap"><div class="rank-bar" style="width:61%;background:#059669"></div></div><span class="rank-val">756</span></li>
+            <li class="rank-item"><span class="rank-num rank-def">4</span><span class="rank-name">Japan</span><div class="rank-bar-wrap"><div class="rank-bar" style="width:38%;background:#94a3b8"></div></div><span class="rank-val">467</span></li>
+            <li class="rank-item"><span class="rank-num rank-def">5</span><span class="rank-name">Germany</span><div class="rank-bar-wrap"><div class="rank-bar" style="width:32%;background:#94a3b8"></div></div><span class="rank-val">392</span></li>
+            <li class="rank-item"><span class="rank-num rank-def">6</span><span class="rank-name">Thailand</span><div class="rank-bar-wrap"><div class="rank-bar" style="width:25%;background:#94a3b8"></div></div><span class="rank-val">312</span></li>
+          </ul>
+        </div>
+        <div id="tab-routes" class="tab-content">
+          <ul class="rank-list">
+            <li class="rank-item"><span class="rank-num rank-1">1</span><span class="rank-name">Asia-Europe</span><div class="rank-bar-wrap"><div class="rank-bar" style="width:100%;background:#d97706"></div></div><span class="rank-val">1,567</span></li>
+            <li class="rank-item"><span class="rank-num rank-2">2</span><span class="rank-name">Intra-Asia</span><div class="rank-bar-wrap"><div class="rank-bar" style="width:72%;background:#d97706"></div></div><span class="rank-val">1,128</span></li>
+            <li class="rank-item"><span class="rank-num rank-3">3</span><span class="rank-name">Asia-Med</span><div class="rank-bar-wrap"><div class="rank-bar" style="width:45%;background:#d97706"></div></div><span class="rank-val">701</span></li>
+            <li class="rank-item"><span class="rank-num rank-def">4</span><span class="rank-name">Transpacific</span><div class="rank-bar-wrap"><div class="rank-bar" style="width:32%;background:#94a3b8"></div></div><span class="rank-val">498</span></li>
+            <li class="rank-item"><span class="rank-num rank-def">5</span><span class="rank-name">Asia-ME</span><div class="rank-bar-wrap"><div class="rank-bar" style="width:21%;background:#94a3b8"></div></div><span class="rank-val">329</span></li>
+          </ul>
+        </div>
+        <div id="tab-sales" class="tab-content">
+          <div class="sale-grid">
+            <div class="sale-card"><div class="sale-head"><span class="sale-name">Sarah Chen</span><span class="sale-rank">#1</span></div><div class="sale-row"><span class="sale-label" style="color:#7c3aed">TEU</span><span class="sale-val">845</span></div><div class="sale-row"><span class="sale-label" style="color:#2563eb">Containers</span><span class="sale-val">623</span></div><div class="sale-row"><span class="sale-label" style="color:#059669">Bookings</span><span class="sale-val">58</span></div><div class="sale-progress"><div class="sale-bar" style="width:100%"></div></div></div>
+            <div class="sale-card"><div class="sale-head"><span class="sale-name">Mike Torres</span><span class="sale-rank">#2</span></div><div class="sale-row"><span class="sale-label" style="color:#7c3aed">TEU</span><span class="sale-val">723</span></div><div class="sale-row"><span class="sale-label" style="color:#2563eb">Containers</span><span class="sale-val">534</span></div><div class="sale-row"><span class="sale-label" style="color:#059669">Bookings</span><span class="sale-val">47</span></div><div class="sale-progress"><div class="sale-bar" style="width:86%"></div></div></div>
+            <div class="sale-card"><div class="sale-head"><span class="sale-name">Lisa Park</span><span class="sale-rank">#3</span></div><div class="sale-row"><span class="sale-label" style="color:#7c3aed">TEU</span><span class="sale-val">612</span></div><div class="sale-row"><span class="sale-label" style="color:#2563eb">Containers</span><span class="sale-val">445</span></div><div class="sale-row"><span class="sale-label" style="color:#059669">Bookings</span><span class="sale-val">41</span></div><div class="sale-progress"><div class="sale-bar" style="width:72%"></div></div></div>
+            <div class="sale-card"><div class="sale-head"><span class="sale-name">James Wilson</span><span class="sale-rank">#4</span></div><div class="sale-row"><span class="sale-label" style="color:#7c3aed">TEU</span><span class="sale-val">498</span></div><div class="sale-row"><span class="sale-label" style="color:#2563eb">Containers</span><span class="sale-val">367</span></div><div class="sale-row"><span class="sale-label" style="color:#059669">Bookings</span><span class="sale-val">35</span></div><div class="sale-progress"><div class="sale-bar" style="width:59%"></div></div></div>
+            <div class="sale-card"><div class="sale-head"><span class="sale-name">Anna Kim</span><span class="sale-rank">#5</span></div><div class="sale-row"><span class="sale-label" style="color:#7c3aed">TEU</span><span class="sale-val">412</span></div><div class="sale-row"><span class="sale-label" style="color:#2563eb">Containers</span><span class="sale-val">298</span></div><div class="sale-row"><span class="sale-label" style="color:#059669">Bookings</span><span class="sale-val">29</span></div><div class="sale-progress"><div class="sale-bar" style="width:49%"></div></div></div>
+            <div class="sale-card"><div class="sale-head"><span class="sale-name">David Lopez</span><span class="sale-rank">#6</span></div><div class="sale-row"><span class="sale-label" style="color:#7c3aed">TEU</span><span class="sale-val">345</span></div><div class="sale-row"><span class="sale-label" style="color:#2563eb">Containers</span><span class="sale-val">256</span></div><div class="sale-row"><span class="sale-label" style="color:#059669">Bookings</span><span class="sale-val">24</span></div><div class="sale-progress"><div class="sale-bar" style="width:41%"></div></div></div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </main>
+</div>
+
+<div class="mock-nav">
+  <a href="index.html">Index</a><a href="01-login.html">Login</a><a href="02-dashboard.html">Dashboard</a><a href="03-analytics.html" class="active">Analytics</a><a href="04-shipments.html">Shipments</a><a href="05-admin.html">Admin</a>
+</div>
+
+<script>
+function switchTab(e, tab) {
+  document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+  document.querySelectorAll('.tab-content').forEach(t => t.classList.remove('active'));
+  e.target.classList.add('active');
+  document.getElementById('tab-' + tab).classList.add('active');
+}
+
+const chartFont = { family: "'DM Sans'" };
+const monoFont = { family: "'IBM Plex Mono'", size: 10 };
+const gridColor = '#f1f5f9';
+
+new Chart(document.getElementById('carrierChart'), { type:'bar', data:{ labels:['Maersk','MSC','CMA CGM','COSCO','Hapag-Lloyd','ONE','Evergreen','Yang Ming'], datasets:[{data:[892,734,621,463,367,301,248,162],backgroundColor:['#0f766e','#115e59','#134e4a','#1a6b62','#1f7a70','#2d9f91','#3db8a8','#5fd4c6'],borderRadius:4}] }, options:{ indexAxis:'y', responsive:true, maintainAspectRatio:false, plugins:{legend:{display:false}}, scales:{ x:{grid:{color:gridColor},ticks:{font:monoFont}}, y:{grid:{display:false},ticks:{font:{...chartFont,size:10}}} } } });
+new Chart(document.getElementById('countryChart'), { type:'bar', data:{ labels:['Singapore','Netherlands','China','Japan','Germany','Thailand'], datasets:[{data:[1234,987,756,467,392,312],backgroundColor:['#059669','#047857','#065f46','#064e3b','#059669','#10b981'],borderRadius:4}] }, options:{ indexAxis:'y', responsive:true, maintainAspectRatio:false, plugins:{legend:{display:false}}, scales:{ x:{grid:{color:gridColor},ticks:{font:monoFont}}, y:{grid:{display:false},ticks:{font:{...chartFont,size:10}}} } } });
+new Chart(document.getElementById('tradeChart'), { type:'bar', data:{ labels:['Asia-Europe','Intra-Asia','Asia-Med','Transpacific','Asia-ME'], datasets:[{data:[1567,1128,701,498,329],backgroundColor:'#d97706',borderRadius:4}] }, options:{ responsive:true, maintainAspectRatio:false, plugins:{legend:{display:false}}, scales:{ x:{grid:{display:false},ticks:{font:{...chartFont,size:9},maxRotation:0}}, y:{grid:{color:gridColor},ticks:{font:monoFont}} } } });
+new Chart(document.getElementById('salesChart'), { type:'bar', data:{ labels:['Sarah','Mike','Lisa','James','Anna','David'], datasets:[{data:[845,723,612,498,412,345],backgroundColor:'#7c3aed',borderRadius:4}] }, options:{ responsive:true, maintainAspectRatio:false, plugins:{legend:{display:false}}, scales:{ x:{grid:{display:false},ticks:{font:{...chartFont,size:10}}}, y:{grid:{color:gridColor},ticks:{font:monoFont}} } } });
+</script>
+</body>
+</html>
