@@ -1,0 +1,16 @@
+FROM node:22-alpine
+
+WORKDIR /app
+
+ENV NODE_ENV=production
+
+COPY package*.json ./
+RUN npm ci --omit=dev
+
+COPY server.js ./
+COPY public/data/Detail_Report_Format.xlsx ./public/data/Detail_Report_Format.xlsx
+COPY Detail_Report_Format.xlsx ./Detail_Report_Format.xlsx
+
+EXPOSE 3001
+
+CMD ["node", "server.js"]
