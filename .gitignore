@@ -31,3 +31,7 @@ google-service-chrome-frame-498008-r2-66e40b62aa96.json
 
 .idea/
 .vscode/
+
+# OMC local state
+.omc/
+.claude/
