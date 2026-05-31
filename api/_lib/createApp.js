@@ -2,6 +2,7 @@ import express from "express";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { userItemHandler, usersCollectionHandler } from "./adminHandlers.js";
+import { aiChatHandler } from "./aiChatHandler.js";
 import { loginHandler, logoutHandler, requireSession as defaultRequireSession, sessionHandler } from "./authHandlers.js";
 import {
   buildAnalytics,
@@ -22,6 +23,7 @@ export function createApp({
   loadWorkbookData = defaultLoadWorkbookData,
   resolveWorkbookPath = defaultResolveWorkbookPath,
   requireSession = defaultRequireSession,
+  openAIClient,
 } = {}) {
   const app = express();
 
@@ -47,6 +49,7 @@ export function createApp({
   app.get("/api/admin/users", asyncHandler(usersCollectionHandler));
   app.post("/api/admin/users", asyncHandler(usersCollectionHandler));
   app.patch("/api/admin/users/:id", asyncHandler((req, res) => userItemHandler(req, res, req.params.id)));
+  app.all("/api/chat", asyncHandler((req, res) => aiChatHandler(req, res, { requireSession, loadWorkbookData, openAIClient })));
 
   app.get("/api/health", (req, res) => {
     try {

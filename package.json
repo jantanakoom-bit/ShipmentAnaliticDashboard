@@ -25,10 +25,14 @@
     "express": "^5.2.1",
     "googleapis": "^173.0.0",
     "jose": "^6.2.3",
+    "openai": "^6.39.1",
     "react": "^19.1.0",
     "react-dom": "^19.1.0",
+    "react-markdown": "^10.1.0",
     "react-router-dom": "^7.16.0",
     "recharts": "^2.15.3",
+    "rehype-sanitize": "^6.0.0",
+    "remark-gfm": "^4.0.1",
     "xlsx": "^0.18.5"
   },
   "devDependencies": {

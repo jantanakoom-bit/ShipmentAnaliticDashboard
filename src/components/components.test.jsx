@@ -3,12 +3,14 @@ import { screen, within, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { MemoryRouter } from "react-router-dom";
 import AdminUsers from "./AdminUsers";
+import AiChatDrawer from "./AiChatDrawer";
 import ChartCard from "./ChartCard";
 import ChipMultiSelect from "./ChipMultiSelect";
 import DetailKpi from "./DetailKpi";
 import HeroPanel from "./HeroPanel";
 import InsightTile from "./InsightTile";
 import KpiCard from "./KpiCard";
+import MarkdownMessage from "./MarkdownMessage";
 import NavSidebar from "./NavSidebar";
 import OverviewKpis from "./OverviewKpis";
 import SearchableMultiSelect from "./SearchableMultiSelect";
@@ -18,12 +20,17 @@ import TabPanel from "./TabPanel";
 import TopListCard from "./TopListCard";
 import TopRankings from "./TopRankings";
 import { apiRequest } from "../lib/api";
+import { sendAiChatMessage } from "../lib/aiChat";
 import { buildMonthlySeries } from "../lib/utils";
 import { adminUser, shipmentRows } from "../test/fixtures";
 import { renderWithRouter } from "../test/test-utils";
 
 vi.mock("../lib/api", () => ({
   apiRequest: vi.fn(),
+}));
+
+vi.mock("../lib/aiChat", () => ({
+  sendAiChatMessage: vi.fn(),
 }));
 
 const countItems = [
@@ -76,6 +83,7 @@ function sidebarProps(overrides = {}) {
 
 beforeEach(() => {
   apiRequest.mockReset();
+  sendAiChatMessage.mockReset();
 });
 
 describe("presentational components", () => {
@@ -221,6 +229,83 @@ describe("navigation and sidebar controls", () => {
     expect(screen.getByText("3 shipment records")).toBeInTheDocument();
     expect(props.onShowAdmin).toHaveBeenCalledTimes(1);
     expect(props.onLogout).toHaveBeenCalledTimes(1);
+  });
+});
+
+describe("AI chat drawer", () => {
+  test("opens, submits current filters, and renders answer metadata", async () => {
+    const user = userEvent.setup();
+    sendAiChatMessage.mockResolvedValue({
+      answer: "### Top Carrier\n\n| Carrier | TEU |\n| --- | ---: |\n| Carrier A | 4 |\n\n- Strongest selected carrier",
+      dataUsed: {
+        tools: ["get_shipment_summary"],
+        rowsMatched: 1,
+        rowLimitApplied: false,
+      },
+    });
+
+    renderWithRouter(
+      <AiChatDrawer
+        filters={{ years: ["2024"], trade: ["Asia"] }}
+        pageContext={{ route: "/analytics", recordCount: 1 }}
+      />,
+    );
+
+    await user.click(screen.getByRole("button", { name: "AI" }));
+    await user.type(screen.getByPlaceholderText("Ask about selected shipment data..."), "Top carrier?");
+    await user.click(screen.getByRole("button", { name: "Send" }));
+
+    await waitFor(() => expect(sendAiChatMessage).toHaveBeenCalledTimes(1));
+    expect(sendAiChatMessage).toHaveBeenCalledWith(expect.objectContaining({
+      filters: { years: ["2024"], trade: ["Asia"] },
+      pageContext: { route: "/analytics", recordCount: 1 },
+    }));
+    expect(await screen.findByRole("heading", { name: "Top Carrier" })).toBeInTheDocument();
+    expect(screen.getByRole("table")).toBeInTheDocument();
+    expect(screen.getByText("Strongest selected carrier")).toBeInTheDocument();
+    expect(screen.getByText(/get_shipment_summary/)).toBeInTheDocument();
+    expect(screen.getByText(/1 rows/)).toBeInTheDocument();
+  });
+
+  test("renders AI chat errors", async () => {
+    const user = userEvent.setup();
+    sendAiChatMessage.mockRejectedValue(new Error("AI chat is not configured"));
+
+    renderWithRouter(<AiChatDrawer filters={{}} pageContext={{ route: "/", recordCount: 0 }} />);
+
+    await user.click(screen.getByRole("button", { name: "AI" }));
+    await user.type(screen.getByPlaceholderText("Ask about selected shipment data..."), "Help");
+    await user.click(screen.getByRole("button", { name: "Send" }));
+
+    expect(await screen.findByText("AI chat is not configured")).toBeInTheDocument();
+  });
+});
+
+describe("MarkdownMessage", () => {
+  test("renders GitHub Flavored Markdown elements", () => {
+    renderWithRouter(
+      <MarkdownMessage
+        content={"### Q1 Summary\n\n| Metric | Value |\n| --- | ---: |\n| Total TEU | 10,722 |\n\n- Carrier A leads\n- Route volume increased\n\n[Open report](https://example.com)"}
+      />,
+    );
+
+    expect(screen.getByRole("heading", { name: "Q1 Summary" })).toBeInTheDocument();
+    expect(screen.getByRole("table")).toBeInTheDocument();
+    expect(screen.getByText("Total TEU")).toBeInTheDocument();
+    expect(screen.getByText("Carrier A leads")).toBeInTheDocument();
+    expect(screen.getByRole("link", { name: "Open report" })).toHaveAttribute("target", "_blank");
+    expect(screen.getByRole("link", { name: "Open report" })).toHaveAttribute("rel", "noopener noreferrer");
+  });
+
+  test("does not render raw HTML from markdown content", () => {
+    const { container } = renderWithRouter(
+      <MarkdownMessage content={"<script>alert('xss')</script>\n\n<strong>Raw strong</strong>\n\n**Safe strong**"} />,
+    );
+
+    expect(screen.queryByText("alert('xss')")).not.toBeInTheDocument();
+    expect(container.querySelector("script")).toBeNull();
+    expect(container.querySelector("strong")).toHaveTextContent("Safe strong");
+    expect(screen.getByText("Safe strong")).toBeInTheDocument();
   });
 });
 

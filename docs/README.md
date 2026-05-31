@@ -6,6 +6,7 @@
 |------|---------|
 | [architecture.md](architecture.md) | System architecture, data flow, component structure |
 | [api-reference.md](api-reference.md) | REST API endpoints, request/response, auth |
+| [ai-chat-system-design.md](ai-chat-system-design.md) | AI chat architecture using OpenAI SDK and workbook data tools |
 | [deployment.md](deployment.md) | Local dev, Docker, CI/CD, environment setup |
 
 ## Design Reference

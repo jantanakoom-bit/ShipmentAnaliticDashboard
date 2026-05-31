@@ -77,7 +77,7 @@ const workbookData = {
   },
 };
 
-function buildTestApp() {
+function buildTestApp(overrides = {}) {
   return createApp({
     rootDir: "/tmp/shipment-test",
     resolveWorkbookPath: () => "/tmp/shipment-test/Detail_Report_Format.xlsx",
@@ -90,6 +90,7 @@ function buildTestApp() {
       res.status(401).json({ error: "Authentication required" });
       return null;
     },
+    ...overrides,
   });
 }
 
@@ -151,5 +152,105 @@ describe("createApp", () => {
       activeRoutes: 2,
     });
     expect(response.body.timeSeries.map((item) => item.key)).toEqual(["2024-01", "2024-04"]);
+  });
+
+  test("rejects unauthenticated AI chat requests", async () => {
+    const response = await request(buildTestApp())
+      .post("/api/chat")
+      .send({ messages: [{ role: "user", content: "Top carriers?" }] })
+      .expect(401);
+
+    expect(response.body).toEqual({ error: "Authentication required" });
+  });
+
+  test("rejects unsupported AI chat methods", async () => {
+    const response = await request(buildTestApp()).get("/api/chat").expect(405);
+
+    expect(response.body).toEqual({ error: "Method not allowed" });
+    expect(response.headers.allow).toBe("POST");
+  });
+
+  test("rejects empty AI chat messages", async () => {
+    const response = await request(buildTestApp())
+      .post("/api/chat")
+      .set("Authorization", "Bearer test-user")
+      .send({ messages: [{ role: "user", content: "   " }] })
+      .expect(400);
+
+    expect(response.body).toEqual({ error: "Message is required" });
+  });
+
+  test("returns AI chat configuration error without OpenAI client or key", async () => {
+    const originalKey = process.env.OPENAI_API_KEY;
+    delete process.env.OPENAI_API_KEY;
+
+    try {
+      const response = await request(buildTestApp())
+        .post("/api/chat")
+        .set("Authorization", "Bearer test-user")
+        .send({ messages: [{ role: "user", content: "Top carriers?" }] })
+        .expect(503);
+
+      expect(response.body).toEqual({ error: "AI chat is not configured" });
+    } finally {
+      if (originalKey) {
+        process.env.OPENAI_API_KEY = originalKey;
+      }
+    }
+  });
+
+  test("answers AI chat using workbook tools through mocked OpenAI client", async () => {
+    const calls = [];
+    const openAIClient = {
+      responses: {
+        create: async (payload) => {
+          calls.push(payload);
+          if (calls.length === 1) {
+            return {
+              id: "resp_1",
+              output: [
+                {
+                  type: "function_call",
+                  name: "get_shipment_summary",
+                  call_id: "call_1",
+                  arguments: JSON.stringify({ grain: "quarter" }),
+                },
+              ],
+            };
+          }
+
+          expect(payload.previous_response_id).toBe("resp_1");
+          expect(payload.input[0]).toMatchObject({ type: "function_call_output", call_id: "call_1" });
+          const toolResult = JSON.parse(payload.input[0].output);
+          expect(toolResult.rowsMatched).toBe(1);
+          expect(toolResult.analytics.summary.totalTeu).toBe(4);
+
+          return {
+            id: "resp_2",
+            output_text: "Carrier A leads with 4 TEU across 1 shipment.",
+            output: [],
+          };
+        },
+      },
+    };
+
+    const response = await request(buildTestApp({ openAIClient }))
+      .post("/api/chat")
+      .set("Authorization", "Bearer test-user")
+      .send({
+        messages: [{ role: "user", content: "Summarize selected carrier TEU." }],
+        filters: { trade: ["Asia"] },
+        pageContext: { route: "/analytics", recordCount: 1 },
+      })
+      .expect(200);
+
+    expect(response.body.answer).toBe("Carrier A leads with 4 TEU across 1 shipment.");
+    expect(response.body.dataUsed).toMatchObject({
+      filters: { trade: ["Asia"] },
+      tools: ["get_shipment_summary"],
+      rowsMatched: 1,
+      rowLimitApplied: false,
+    });
+    expect(response.body.requestId).toEqual(expect.any(String));
   });
 });
