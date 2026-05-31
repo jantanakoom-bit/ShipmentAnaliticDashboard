@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
+import { Routes, Route, useLocation, Navigate, Link } from "react-router-dom";
 import { buildFilterOptions } from "./lib/dashboard";
 import { apiRequest } from "./lib/api";
 import { loadWorkbookData } from "./lib/loadWorkbook";
@@ -17,13 +18,11 @@ import {
 } from "./lib/utils";
 
 import LoginScreen from "./components/LoginScreen";
-import AdminUsers from "./components/AdminUsers";
-import Sidebar from "./components/Sidebar";
-import HeroPanel from "./components/HeroPanel";
-import OverviewKpis from "./components/OverviewKpis";
-import DetailAnalysis from "./components/DetailAnalysis";
-import TopRankings from "./components/TopRankings";
-import ShipmentTable from "./components/ShipmentTable";
+import NavSidebar from "./components/NavSidebar";
+import DashboardPage from "./pages/DashboardPage";
+import AnalyticsPage from "./pages/AnalyticsPage";
+import ShipmentsPage from "./pages/ShipmentsPage";
+import AdminPage from "./pages/AdminPage";
 
 export default function App() {
   const [state, setState] = useState({
@@ -39,7 +38,6 @@ export default function App() {
   const [authLoading, setAuthLoading] = useState(true);
   const [loginLoading, setLoginLoading] = useState(false);
   const [authError, setAuthError] = useState("");
-  const [showAdmin, setShowAdmin] = useState(false);
 
   const [dateFilters, setDateFilters] = useState({ years: [], quarters: [], months: [] });
   const [selected, setSelected] = useState({ port: [], country: [], trade: [], carrier: [], sales: [] });
@@ -166,7 +164,6 @@ export default function App() {
     }
     setIsAuthenticated(false);
     setCurrentUser(null);
-    setShowAdmin(false);
     setAuthError("");
   }
 
@@ -247,85 +244,186 @@ export default function App() {
   const yearOptions = state.filterOptions.years.map((item) => ({ label: `${item}`, value: `${item}` }));
 
   return (
-    <>
-      <div className="app-shell">
-        <Sidebar
-          metadata={state.metadata}
-          filteredRows={filteredRows}
-          totalTeu={totalTeu}
-          quarterOptions={quarterOptions}
-          monthOptions={monthOptions}
-          yearOptions={yearOptions}
-          dateFilters={dateFilters}
-          counts={state.counts}
-          selected={selected}
-          availableValues={availableValues}
-          searches={searches}
-          currentUser={currentUser}
-          onToggleDateFilter={toggleDateFilter}
-          onSetAllDate={setAllDate}
-          onToggleSelect={toggleSelect}
-          onSetSelected={setSelected}
-          onSetSearches={setSearches}
-          onSelectAll={() => initializeFromData({ detailData: state.detailData, metadata: state.metadata })}
-          onShowAdmin={() => setShowAdmin(true)}
-          onLogout={handleLogout}
-        />
+    <AppShell
+      currentUser={currentUser}
+      onLogout={handleLogout}
+      dateFilters={dateFilters}
+      quarterOptions={quarterOptions}
+      monthOptions={monthOptions}
+      yearOptions={yearOptions}
+      onToggleDateFilter={toggleDateFilter}
+      onSetAllDate={setAllDate}
+      counts={state.counts}
+      selected={selected}
+      availableValues={availableValues}
+      searches={searches}
+      onToggleSelect={toggleSelect}
+      onSetSelected={setSelected}
+      onSetSearches={setSearches}
+      onSelectAll={() => initializeFromData({ detailData: state.detailData, metadata: state.metadata })}
+      state={state}
+      filteredRows={filteredRows}
+      totalQty={totalQty}
+      totalTeu={totalTeu}
+      uniqueBookings={uniqueBookings}
+      activeCarriers={activeCarriers}
+      overviewRows={overviewRows}
+      overviewUnit={overviewUnit}
+      overviewMonthly={overviewMonthly}
+      detailUnit={detailUnit}
+      filteredMonthly={filteredMonthly}
+      topPort={topPort}
+      topCarrier={topCarrier}
+      topCountry={topCountry}
+      topTrade={topTrade}
+      topSales={topSales}
+      saleCards={saleCards}
+      dateRange={getDateRange(filteredRows)}
+    />
+  );
+}
 
-        <main id="main">
-          <div id="topbar">
-            <div>
-              <div className="page-title">Shipment Analytics Dashboard</div>
-              <div className="page-sub">
-                {getDateRange(filteredRows)} | Signed in as {currentUser?.displayName || currentUser?.username}
+function AppShell(props) {
+  const location = useLocation();
+  const pathname = location.pathname;
+
+  const filterMode = pathname === "/admin" ? "nav" : pathname === "/" ? "compact" : "full";
+
+  const pageName = pathname === "/analytics"
+    ? "Analytics"
+    : pathname === "/shipments"
+      ? "Shipments"
+      : pathname === "/admin"
+        ? "Admin"
+        : "Dashboard";
+
+  return (
+    <div className="app-shell">
+      <NavSidebar
+        currentUser={props.currentUser}
+        onLogout={props.onLogout}
+        dateFilters={props.dateFilters}
+        quarterOptions={props.quarterOptions}
+        monthOptions={props.monthOptions}
+        yearOptions={props.yearOptions}
+        onToggleDateFilter={props.onToggleDateFilter}
+        onSetAllDate={props.onSetAllDate}
+        counts={props.counts}
+        selected={props.selected}
+        availableValues={props.availableValues}
+        searches={props.searches}
+        onToggleSelect={props.onToggleSelect}
+        onSetSelected={props.onSetSelected}
+        onSetSearches={props.onSetSearches}
+        onSelectAll={props.onSelectAll}
+        filterMode={filterMode}
+        recordCount={props.filteredRows.length}
+      />
+
+      <main id="main">
+        <div id="topbar">
+          <div className="breadcrumb">
+            {pathname === "/" ? (
+              <span>ShipTrack</span>
+            ) : (
+              <Link to="/" className="breadcrumb-link">ShipTrack</Link>
+            )}
+            <span>/</span>
+            {pageName === "Analytics" ? (
+              <>
+                <Link to="/analytics" className="breadcrumb-link">Analytics</Link>
+                <span>/</span>
+                <b>Deep Dive</b>
+              </>
+            ) : pageName === "Admin" ? (
+              <>
+                <Link to="/admin" className="breadcrumb-link">Admin</Link>
+                <span>/</span>
+                <b>User Management</b>
+              </>
+            ) : (
+              <b>{pageName}</b>
+            )}
+          </div>
+          <div className="topbar-right">
+            {pageName === "Dashboard" ? <span className="topbar-note">{props.dateRange}</span> : null}
+            {pageName === "Analytics" ? <span className="topbar-note">All filters applied</span> : null}
+            {pageName === "Shipments" ? (
+              <span id="record-count" className="active-badge">
+                {formatNumber(props.filteredRows.length)} records
+              </span>
+            ) : null}
+            {pageName !== "Shipments" && pageName !== "Admin" ? (
+              <div className="user-chip">
+                <div className="user-avatar">
+                  {(props.currentUser?.displayName || props.currentUser?.username || "U").charAt(0).toUpperCase()}
+                </div>
+                {props.currentUser?.displayName || props.currentUser?.username}
+                {props.currentUser?.role ? ` (${props.currentUser.role})` : ""}
               </div>
-            </div>
-            <div id="record-count" className="active-badge">
-              {formatNumber(filteredRows.length)} records
-            </div>
+            ) : null}
           </div>
+        </div>
 
-          <div id="content">
-            {state.error ? <div className="inline-error">{state.error}</div> : null}
-            {showAdmin && currentUser?.role === "admin" ? <AdminUsers onClose={() => setShowAdmin(false)} /> : null}
+        <div id="content">
+          {props.state.error ? <div className="inline-error">{props.state.error}</div> : null}
 
-            <HeroPanel
-              topCarrier={topCarrier}
-              topCountry={topCountry}
-              uniqueBookings={uniqueBookings}
-              activeCarriers={activeCarriers}
+          <Routes>
+            <Route
+              path="/"
+              element={
+                <DashboardPage
+                  filteredRows={props.filteredRows}
+                  totalTeu={props.totalTeu}
+                  uniqueBookings={props.uniqueBookings}
+                  activeCarriers={props.activeCarriers}
+                  totalQty={props.totalQty}
+                  overviewRows={props.overviewRows}
+                  overviewMonthly={props.overviewMonthly}
+                  overviewUnit={props.overviewUnit}
+                  topCarrier={props.topCarrier}
+                  topCountry={props.topCountry}
+                  topSales={props.topSales}
+                  topPort={props.topPort}
+                  topTrade={props.topTrade}
+                />
+              }
             />
-
-            <OverviewKpis
-              overviewRows={overviewRows}
-              overviewUnit={overviewUnit}
-              overviewMonthly={overviewMonthly}
+            <Route
+              path="/analytics"
+              element={
+                <AnalyticsPage
+                  filteredRows={props.filteredRows}
+                  totalQty={props.totalQty}
+                  totalTeu={props.totalTeu}
+                  detailUnit={props.detailUnit}
+                  filteredMonthly={props.filteredMonthly}
+                  topCarrier={props.topCarrier}
+                  topCountry={props.topCountry}
+                  topTrade={props.topTrade}
+                  topPort={props.topPort}
+                  topSales={props.topSales}
+                  saleCards={props.saleCards}
+                  dateFilters={props.dateFilters}
+                  selected={props.selected}
+                  counts={props.counts}
+                  onSetAllDate={props.onSetAllDate}
+                  onSetSelected={props.onSetSelected}
+                />
+              }
             />
-
-            <DetailAnalysis
-              filteredRows={filteredRows}
-              totalQty={totalQty}
-              totalTeu={totalTeu}
-              detailUnit={detailUnit}
-              filteredMonthly={filteredMonthly}
-              topCarrier={topCarrier}
-              topCountry={topCountry}
-              topTrade={topTrade}
-              topSales={topSales}
+            <Route
+              path="/shipments"
+              element={<ShipmentsPage filteredRows={props.filteredRows} />}
             />
-
-            <TopRankings
-              topPort={topPort}
-              topCarrier={topCarrier}
-              topCountry={topCountry}
-              topTrade={topTrade}
-              saleCards={saleCards}
+            <Route
+              path="/admin"
+              element={<AdminPage currentUser={props.currentUser} />}
             />
-
-            <ShipmentTable filteredRows={filteredRows} />
-          </div>
-        </main>
-      </div>
-    </>
+            <Route path="*" element={<Navigate to="/" replace />} />
+          </Routes>
+        </div>
+      </main>
+    </div>
   );
 }
