@@ -1,6 +1,7 @@
 import bcrypt from "bcryptjs";
 import { randomUUID } from "node:crypto";
 import { getSheetsClient, requiredEnv } from "./googleSheets.js";
+import { ROLES, normalizeRole } from "./rbac.js";
 
 const USER_SHEET_NAME = process.env.USER_SHEET_NAME || "Users";
 const CACHE_MS = 45 * 1000;
@@ -29,7 +30,7 @@ function normalizeUser(row, rowNumber) {
   return {
     ...user,
     rowNumber,
-    role: user.role || "user",
+    role: normalizeRole(user.role),
     status: user.status || "active",
   };
 }
@@ -129,8 +130,8 @@ export async function createUser({ username, password, role = "user", displayNam
   if (!normalizedUsername) {
     throw new Error("Username is required.");
   }
-  if (!["admin", "user"].includes(role)) {
-    throw new Error("Role must be admin or user.");
+  if (!ROLES.includes(role)) {
+    throw new Error("Role must be admin, moderator, or user.");
   }
   if (!["active", "disabled"].includes(status)) {
     throw new Error("Status must be active or disabled.");
@@ -178,7 +179,7 @@ export async function updateUser(id, { password, role, displayName, status }) {
 
   const patch = {};
   if (role !== undefined) {
-    if (!["admin", "user"].includes(role)) throw new Error("Role must be admin or user.");
+    if (!ROLES.includes(role)) throw new Error("Role must be admin, moderator, or user.");
     patch.role = role;
   }
   if (status !== undefined) {

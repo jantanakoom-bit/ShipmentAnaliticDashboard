@@ -2,6 +2,7 @@ import { getRequestBody, sendJson, sendMethodNotAllowed } from "./http.js";
 import { requireSession as defaultRequireSession } from "./authHandlers.js";
 import { filterRows, loadWorkbookData as defaultLoadWorkbookData } from "./workbook.js";
 import { buildTrackingModel, filterTrackingRows, serializeTrackingRow } from "./tracking.js";
+import { scopeRowsForUser } from "./rbac.js";
 
 export async function trackingCollectionHandler(req, res, deps = {}) {
   const {
@@ -20,7 +21,7 @@ export async function trackingCollectionHandler(req, res, deps = {}) {
 
   const query = getQuery(req);
   const { detailData } = await loadWorkbookData();
-  const baseRows = filterRows(detailData, query);
+  const baseRows = filterRows(scopeRowsForUser(detailData, session.user), query);
   const trackingRows = filterTrackingRows(buildTrackingModel(baseRows).rows, query);
   const trackingModel = buildTrackingModel(trackingRows);
 
@@ -48,7 +49,7 @@ export async function trackingExceptionsHandler(req, res, deps = {}) {
 
   const query = getQuery(req);
   const { detailData } = await loadWorkbookData();
-  const baseRows = filterRows(detailData, query);
+  const baseRows = filterRows(scopeRowsForUser(detailData, session.user), query);
   const trackingModel = buildTrackingModel(baseRows);
   const rows = filterTrackingRows(trackingModel.exceptions, query);
 

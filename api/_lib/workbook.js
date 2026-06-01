@@ -58,6 +58,19 @@ export function serializeWorkbookData(data) {
   };
 }
 
+export function buildWorkbookResponse(detailData, metadata = {}) {
+  const rows = detailData.filter((row) => !row.isDeleted);
+  return {
+    detailData: rows,
+    metadata: {
+      ...metadata,
+      shipments: rows.length,
+      dateRange: getDateRange(rows),
+      filters: buildFilterOptions(rows),
+    },
+  };
+}
+
 export function filterRows(rows, query) {
   return rows.filter((row) => {
     if (query.year && query.year !== "All" && `${row.year}` !== `${query.year}`) return false;
@@ -67,6 +80,7 @@ export function filterRows(rows, query) {
     if (query.carrier && query.carrier !== "All" && row.carrier !== query.carrier) return false;
     if (query.shipper && query.shipper !== "All" && row.shipper !== query.shipper) return false;
     if (query.status && query.status !== "All" && row.status !== query.status) return false;
+    if (query.sales && query.sales !== "All" && row.saleName !== query.sales) return false;
     return true;
   });
 }
@@ -158,6 +172,16 @@ export function normalizeWorkbookRow(row) {
     delayDays: toNumber(firstValue(row, ["delay_days", "Delay Days", "delayDays"])),
     delayReason: text(firstValue(row, ["delay_reason", "Delay Reason", "delayReason"])),
     onTimeFlag: text(firstValue(row, ["on_time_flag", "On Time Flag", "onTimeFlag"])),
+    recordId: text(firstValue(row, ["record_id", "Record ID", "recordId"])) || text(firstValue(row, ["shipment_id", "Shipment ID", "Shipment Id", "shipmentId"])),
+    ownerUserId: text(firstValue(row, ["owner_user_id", "Owner User ID", "ownerUserId"])),
+    ownerUsername: text(firstValue(row, ["owner_username", "Owner Username", "ownerUsername"])),
+    createdBy: text(firstValue(row, ["created_by", "Created By", "createdBy"])),
+    updatedBy: text(firstValue(row, ["updated_by", "Updated By", "updatedBy"])),
+    createdAt: text(firstValue(row, ["created_at", "Created At", "createdAt"])),
+    updatedAt: text(firstValue(row, ["updated_at", "Updated At", "updatedAt"])),
+    isDeleted: toBoolean(firstValue(row, ["is_deleted", "Is Deleted", "isDeleted"])),
+    deletedAt: text(firstValue(row, ["deleted_at", "Deleted At", "deletedAt"])),
+    deletedBy: text(firstValue(row, ["deleted_by", "Deleted By", "deletedBy"])),
   };
 }
 
@@ -288,6 +312,10 @@ function firstValue(row, keys) {
 function toNumber(value) {
   const num = Number(value);
   return Number.isFinite(num) ? num : 0;
+}
+
+function toBoolean(value) {
+  return ["true", "yes", "1"].includes(`${value ?? ""}`.trim().toLowerCase());
 }
 
 function toExcelDate(value) {

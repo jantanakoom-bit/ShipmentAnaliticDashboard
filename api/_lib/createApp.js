@@ -4,15 +4,11 @@ import { fileURLToPath } from "node:url";
 import { userItemHandler, usersCollectionHandler } from "./adminHandlers.js";
 import { aiChatHandler } from "./aiChatHandler.js";
 import { loginHandler, logoutHandler, requireSession as defaultRequireSession, sessionHandler } from "./authHandlers.js";
+import { analyticsHandler, metadataHandler, shipmentItemHandler, shipmentsCollectionHandler, workbookHandler } from "./shipmentHandlers.js";
 import { trackingCollectionHandler, trackingExceptionsHandler } from "./trackingHandlers.js";
 import {
-  buildAnalytics,
-  clampNumber,
-  filterRows,
   loadWorkbookData as defaultLoadWorkbookData,
   resolveWorkbookPath as defaultResolveWorkbookPath,
-  serializeRow,
-  serializeWorkbookData,
 } from "./workbook.js";
 
 const __filename = fileURLToPath(import.meta.url);
@@ -24,6 +20,7 @@ export function createApp({
   loadWorkbookData = defaultLoadWorkbookData,
   resolveWorkbookPath = defaultResolveWorkbookPath,
   requireSession = defaultRequireSession,
+  shipmentStore,
   openAIClient,
 } = {}) {
   const app = express();
@@ -34,7 +31,7 @@ export function createApp({
     res.setHeader("Access-Control-Allow-Origin", origin);
     res.setHeader("Access-Control-Allow-Credentials", "true");
     res.setHeader("Access-Control-Allow-Headers", "Content-Type");
-    res.setHeader("Access-Control-Allow-Methods", "GET,POST,PATCH,OPTIONS");
+    res.setHeader("Access-Control-Allow-Methods", "GET,POST,PATCH,DELETE,OPTIONS");
 
     if (req.method === "OPTIONS") {
       res.sendStatus(204);
@@ -75,36 +72,15 @@ export function createApp({
     }
   }));
 
-  app.get("/api/workbook", asyncHandler(async (req, res) => {
-    const data = await loadWorkbookData();
-    res.json(serializeWorkbookData(data));
-  }));
-
-  app.get("/api/metadata", asyncHandler(async (req, res) => {
-    const data = await loadWorkbookData();
-    res.json(data.metadata);
-  }));
-
-  app.get("/api/shipments", asyncHandler(async (req, res) => {
-    const { detailData } = await loadWorkbookData();
-    const filtered = filterRows(detailData, req.query);
-    const limit = clampNumber(req.query.limit, 1, 500, 100);
-
-    res.json({
-      count: filtered.length,
-      rows: filtered.slice(0, limit).map(serializeRow),
-    });
-  }));
-
-  app.get("/api/analytics", asyncHandler(async (req, res) => {
-    const { detailData } = await loadWorkbookData();
-    const filtered = filterRows(detailData, req.query);
-    const grain = ["month", "quarter", "year"].includes(req.query.grain)
-      ? req.query.grain
-      : "month";
-
-    res.json(buildAnalytics(filtered, grain));
-  }));
+  const shipmentDeps = { requireSession: localSessionFromRequest, loadWorkbookData, shipmentStore };
+  app.get("/api/workbook", asyncHandler((req, res) => workbookHandler(req, res, shipmentDeps)));
+  app.get("/api/metadata", asyncHandler((req, res) => metadataHandler(req, res, shipmentDeps)));
+  app.get("/api/shipments", asyncHandler((req, res) => shipmentsCollectionHandler(req, res, shipmentDeps)));
+  app.post("/api/shipments", asyncHandler((req, res) => shipmentsCollectionHandler(req, res, shipmentDeps)));
+  app.get("/api/shipments/:id", asyncHandler((req, res) => shipmentItemHandler(req, res, req.params.id, shipmentDeps)));
+  app.patch("/api/shipments/:id", asyncHandler((req, res) => shipmentItemHandler(req, res, req.params.id, shipmentDeps)));
+  app.delete("/api/shipments/:id", asyncHandler((req, res) => shipmentItemHandler(req, res, req.params.id, shipmentDeps)));
+  app.get("/api/analytics", asyncHandler((req, res) => analyticsHandler(req, res, shipmentDeps)));
 
   app.get("/api/tracking", asyncHandler((req, res) =>
     trackingCollectionHandler(req, res, { requireSession: localSessionFromRequest, loadWorkbookData })
