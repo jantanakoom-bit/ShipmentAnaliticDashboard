@@ -30,7 +30,7 @@ export async function loadWorkbookData() {
   const detailRows = rows.slice(1).map((row) =>
     Object.fromEntries(headers.map((header, index) => [header, row[index] ?? ""]))
   );
-  const detailData = detailRows.map(normalizeRow);
+  const detailData = detailRows.map(normalizeWorkbookRow);
   const columns = headers;
 
   dataCache = {
@@ -112,13 +112,14 @@ export function clampNumber(value, min, max, fallback) {
   return Math.min(max, Math.max(min, Math.trunc(num)));
 }
 
-function normalizeRow(row) {
+export function normalizeWorkbookRow(row) {
   const date = toExcelDate(row.Date);
   const monthNumber = date ? date.getUTCMonth() + 1 : toNumber(row.MONTH);
   const year = date ? date.getUTCFullYear() : null;
   const quarter = getQuarter(monthNumber);
   const destination = text(row.Destination ?? row.PORT, "Unknown");
   const pol = text(row.POL, "Unknown");
+  const status = text(row.Status, "Unspecified");
 
   return {
     date,
@@ -141,11 +142,22 @@ function normalizeRow(row) {
     qty: toNumber(row.Qty),
     unit: text(row.Unit, "Unknown"),
     teu: toNumber(row.TEU),
-    status: text(row.Status, "Unspecified"),
+    status,
     saleName: text(row["Sale Name"], "Unknown"),
     trade: text(row.TRADE, "Unknown"),
     carrier: text(row.CARRIER, "Unknown"),
     route: `${pol} -> ${destination}`,
+    shipmentId: text(firstValue(row, ["shipment_id", "Shipment ID", "Shipment Id", "shipmentId"])),
+    containerNo: text(firstValue(row, ["container_no", "Container No", "Container No.", "containerNo"])),
+    etd: toExcelDate(firstValue(row, ["ETD", "etd"])),
+    eta: toExcelDate(firstValue(row, ["ETA", "eta"])),
+    atd: toExcelDate(firstValue(row, ["ATD", "atd"])),
+    ata: toExcelDate(firstValue(row, ["ATA", "ata"])),
+    currentMilestone: text(firstValue(row, ["current_milestone", "Current Milestone", "currentMilestone"]), status),
+    lastEventTime: toExcelDate(firstValue(row, ["last_event_time", "Last Event Time", "lastEventTime"])),
+    delayDays: toNumber(firstValue(row, ["delay_days", "Delay Days", "delayDays"])),
+    delayReason: text(firstValue(row, ["delay_reason", "Delay Reason", "delayReason"])),
+    onTimeFlag: text(firstValue(row, ["on_time_flag", "On Time Flag", "onTimeFlag"])),
   };
 }
 
@@ -262,6 +274,15 @@ function sumBy(rows, key) {
 
 function text(value, fallback = "") {
   return `${value ?? ""}`.trim() || fallback;
+}
+
+function firstValue(row, keys) {
+  for (const key of keys) {
+    if (row[key] !== undefined && row[key] !== null && `${row[key]}`.trim() !== "") {
+      return row[key];
+    }
+  }
+  return "";
 }
 
 function toNumber(value) {

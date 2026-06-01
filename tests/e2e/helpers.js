@@ -52,6 +52,15 @@ export function buildRows(count = 60) {
       trade: template.trade,
       carrier: template.carrier,
       route: `BKK -> ${template.port}`,
+      shipmentId: `SHP-${String(index + 1).padStart(3, "0")}`,
+      containerNo: `CONT-${String(index + 1).padStart(3, "0")}`,
+      eta: index % 3 === 0 ? "2024-02-01T00:00:00.000Z" : "2027-02-01T00:00:00.000Z",
+      ata: null,
+      currentMilestone: index % 3 === 0 ? "In Transit" : "Booked",
+      lastEventTime: index % 3 === 0 ? "2024-01-10T00:00:00.000Z" : "2027-01-10T00:00:00.000Z",
+      delayDays: index % 3 === 0 ? 5 : 0,
+      delayReason: index % 3 === 0 ? "Carrier delay" : "",
+      onTimeFlag: index % 3 === 0 ? "No" : "Yes",
     };
   });
 }

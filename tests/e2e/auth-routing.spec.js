@@ -13,6 +13,8 @@ test("logs in, navigates all routes, redirects unknown routes, and logs out", as
   await expect(page.getByText("Top 10 Rankings")).toBeVisible();
   await page.locator(".nav-sidebar").getByRole("link", { name: /Shipments/ }).click();
   await expect(page.getByText("Shipment Detail")).toBeVisible();
+  await page.locator(".nav-sidebar").getByRole("link", { name: /Tracking/ }).click();
+  await expect(page.getByText("Operational Tracking")).toBeVisible();
   await page.locator(".nav-sidebar").getByRole("link", { name: /Admin/ }).click();
   await expect(page.locator(".admin-title")).toHaveText("User Management");
 

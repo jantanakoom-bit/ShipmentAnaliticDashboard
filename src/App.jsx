@@ -24,6 +24,7 @@ import NavSidebar from "./components/NavSidebar";
 const DashboardPage = lazy(() => import("./pages/DashboardPage"));
 const AnalyticsPage = lazy(() => import("./pages/AnalyticsPage"));
 const ShipmentsPage = lazy(() => import("./pages/ShipmentsPage"));
+const TrackingPage = lazy(() => import("./pages/TrackingPage"));
 const AdminPage = lazy(() => import("./pages/AdminPage"));
 
 export default function App() {
@@ -295,9 +296,11 @@ function AppShell(props) {
     ? "Analytics"
     : pathname === "/shipments"
       ? "Shipments"
-      : pathname === "/admin"
-        ? "Admin"
-        : "Dashboard";
+      : pathname === "/tracking"
+        ? "Tracking"
+        : pathname === "/admin"
+          ? "Admin"
+          : "Dashboard";
   const chatFilters = {
     years: props.dateFilters.years,
     quarters: props.dateFilters.quarters,
@@ -350,6 +353,12 @@ function AppShell(props) {
                 <Link to="/analytics" className="breadcrumb-link">Analytics</Link>
                 <span>/</span>
                 <b>Deep Dive</b>
+              </>
+            ) : pageName === "Tracking" ? (
+              <>
+                <Link to="/tracking" className="breadcrumb-link">Tracking</Link>
+                <span>/</span>
+                <b>Operations</b>
               </>
             ) : pageName === "Admin" ? (
               <>
@@ -432,6 +441,10 @@ function AppShell(props) {
             <Route
               path="/shipments"
               element={<ShipmentsPage filteredRows={props.filteredRows} />}
+            />
+            <Route
+              path="/tracking"
+              element={<TrackingPage filteredRows={props.filteredRows} />}
             />
             <Route
               path="/admin"

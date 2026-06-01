@@ -9,6 +9,7 @@ import AdminPage from "./AdminPage";
 import AnalyticsPage from "./AnalyticsPage";
 import DashboardPage from "./DashboardPage";
 import ShipmentsPage from "./ShipmentsPage";
+import TrackingPage from "./TrackingPage";
 
 vi.mock("../lib/api", () => ({
   apiRequest: vi.fn(),
@@ -115,6 +116,42 @@ describe("ShipmentsPage", () => {
     expect(createObjectURL).toHaveBeenCalledTimes(1);
     expect(click).toHaveBeenCalledTimes(1);
     expect(revokeObjectURL).toHaveBeenCalledWith("blob:shipments");
+  });
+});
+
+describe("TrackingPage", () => {
+  test("renders operational KPIs, milestones, and filters exception rows", async () => {
+    const user = userEvent.setup();
+    const rows = [
+      {
+        ...shipmentRows[0],
+        shipmentId: "SHP-001",
+        eta: new Date("2026-05-20T00:00:00.000Z"),
+        currentMilestone: "In Transit",
+        lastEventTime: new Date("2026-05-29T00:00:00.000Z"),
+      },
+      {
+        ...shipmentRows[1],
+        shipmentId: "SHP-002",
+        eta: new Date("2026-06-10T00:00:00.000Z"),
+        currentMilestone: "Booked",
+        lastEventTime: new Date("2026-05-20T00:00:00.000Z"),
+      },
+    ];
+
+    renderWithRouter(<TrackingPage filteredRows={rows} now={new Date("2026-06-01T00:00:00.000Z")} />);
+
+    expect(screen.getByText("Operational Tracking")).toBeInTheDocument();
+    expect(screen.getByText("2 active exceptions")).toBeInTheDocument();
+    expect(screen.getByText("Tracked Shipments")).toBeInTheDocument();
+    expect(screen.getAllByText("Delayed").length).toBeGreaterThan(0);
+    expect(screen.getAllByText("In Transit").length).toBeGreaterThan(0);
+    expect(screen.getByText("BK-001")).toBeInTheDocument();
+    expect(screen.getByText("BK-002")).toBeInTheDocument();
+
+    await user.selectOptions(screen.getByLabelText("Exception type"), "delayed");
+    expect(screen.getByText("BK-001")).toBeInTheDocument();
+    expect(screen.queryByText("BK-002")).not.toBeInTheDocument();
   });
 });
 

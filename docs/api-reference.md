@@ -84,6 +84,67 @@ Fetch all shipment data from Google Sheets.
 
 ---
 
+## Tracking
+
+### GET /api/tracking
+
+Return read-only operational tracking rows, milestone counts, and exception summary for the selected filters.
+
+**Auth:** Required (session cookie).
+
+**Optional query params:** `year`, `quarter`, `month`, `trade`, `carrier`, `shipper`, `status`, `milestone`, `exceptionType`, `sales`.
+
+**Response (200):**
+```json
+{
+  "summary": {
+    "totalShipments": 42,
+    "delayedShipments": 3,
+    "staleShipments": 5,
+    "missingDataShipments": 2,
+    "invalidSequenceShipments": 1,
+    "exceptionShipments": 8
+  },
+  "milestoneSummary": [
+    { "name": "In Transit", "count": 18 }
+  ],
+  "rows": [
+    {
+      "shipmentId": "SHP-001",
+      "bookingNo": "BK001",
+      "jobNo": "J001",
+      "currentMilestone": "In Transit",
+      "eta": "2026-05-20T00:00:00.000Z",
+      "lastEventTime": "2026-05-15T09:00:00.000Z",
+      "exceptionTypes": ["delayed"]
+    }
+  ]
+}
+```
+
+### GET /api/tracking/exceptions
+
+Return only tracking rows that require operational review.
+
+**Auth:** Required (session cookie).
+
+**Response (200):**
+```json
+{
+  "count": 1,
+  "rows": [
+    {
+      "shipmentId": "SHP-001",
+      "bookingNo": "BK001",
+      "exceptionTypes": ["delayed", "stale"]
+    }
+  ],
+  "generatedAt": "2026-06-01T00:00:00.000Z"
+}
+```
+
+---
+
 ## Health
 
 ### GET /api/health

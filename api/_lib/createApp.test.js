@@ -29,6 +29,11 @@ const detailData = [
     trade: "Asia",
     carrier: "Carrier A",
     route: "BKK -> Tokyo",
+    shipmentId: "SHP-001",
+    containerNo: "CONT-001",
+    eta: new Date("2024-01-20T00:00:00.000Z"),
+    currentMilestone: "In Transit",
+    lastEventTime: new Date("2024-01-10T00:00:00.000Z"),
   },
   {
     date: new Date(Date.UTC(2024, 3, 10)),
@@ -56,6 +61,10 @@ const detailData = [
     trade: "Europe",
     carrier: "Carrier B",
     route: "BKK -> Hamburg",
+    shipmentId: "SHP-002",
+    eta: new Date("2026-07-10T00:00:00.000Z"),
+    currentMilestone: "Booked",
+    lastEventTime: new Date("2026-06-01T00:00:00.000Z"),
   },
 ];
 
@@ -152,6 +161,36 @@ describe("createApp", () => {
       activeRoutes: 2,
     });
     expect(response.body.timeSeries.map((item) => item.key)).toEqual(["2024-01", "2024-04"]);
+  });
+
+  test("rejects protected tracking requests without a session", async () => {
+    const response = await request(buildTestApp()).get("/api/tracking").expect(401);
+
+    expect(response.body).toEqual({ error: "Authentication required" });
+  });
+
+  test("serves tracking summary and filtered exceptions to authenticated requests", async () => {
+    const tracking = await request(buildTestApp())
+      .get("/api/tracking?milestone=In%20Transit")
+      .set("Authorization", "Bearer test-user")
+      .expect(200);
+
+    expect(tracking.body.summary.totalShipments).toBe(1);
+    expect(tracking.body.rows[0]).toMatchObject({
+      shipmentId: "SHP-001",
+      bookingNo: "BK-001",
+      currentMilestone: "In Transit",
+      exceptionTypes: expect.arrayContaining(["delayed", "stale"]),
+    });
+    expect(tracking.body.rows[0].eta).toBe("2024-01-20T00:00:00.000Z");
+
+    const exceptions = await request(buildTestApp())
+      .get("/api/tracking/exceptions?exceptionType=delayed")
+      .set("Authorization", "Bearer test-user")
+      .expect(200);
+
+    expect(exceptions.body.count).toBe(1);
+    expect(exceptions.body.rows[0].shipmentId).toBe("SHP-001");
   });
 
   test("rejects unauthenticated AI chat requests", async () => {

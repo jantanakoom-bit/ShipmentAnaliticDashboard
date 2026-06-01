@@ -35,6 +35,8 @@ API endpoints:
 - `GET /api/metadata`
 - `GET /api/analytics?grain=quarter&year=2026`
 - `GET /api/shipments?limit=20&carrier=ONE`
+- `GET /api/tracking?milestone=In%20Transit`
+- `GET /api/tracking/exceptions?exceptionType=delayed`
 
 ## Login Users
 
@@ -85,6 +87,17 @@ See `docs/devops.md` for local deployment, environment variable, and smoke-test 
   - shipment and TEU trend by selected time grain
   - top trade, carrier, destination, shipper, route, and status breakdown
   - shipment detail drill-down table
+  - read-only operational tracking page with milestone summary and exception queue
+
+## Optional Operational Tracking Columns
+
+Add these headers to `Detail Data` when milestone tracking is available. Existing sheets without these columns still load.
+
+```text
+shipment_id,container_no,ETD,ETA,ATD,ATA,current_milestone,last_event_time,delay_days,delay_reason,on_time_flag
+```
+
+The tracking page classifies delayed shipments, stale updates, missing operational data, and invalid ETD/ETA or ATD/ATA date sequences.
 
 ## Design Reference
 
@@ -92,7 +105,7 @@ See `docs/devops.md` for local deployment, environment variable, and smoke-test 
 
 ## Next Recommended Iteration
 
-- Add shipper, trade, route, and carrier filters
 - Standardize `Status` values in the source workbook
-- Replace summary-only data with event-level movement data if available
-- Add milestone tracking page once ETD/ETA/ATA/event fields exist
+- Add event-level movement history once source data is available
+- Add owner/action workflow and notifications for exception follow-up
+- Extend AI assistant with operational tracking tools

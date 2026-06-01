@@ -10,7 +10,8 @@ Browser (React SPA)
   ├── /api/* → Express API (port 3001)
   │               ├── auth/        (login, logout, session)
   │               ├── admin/users/ (CRUD, admin only)
-  │               └── workbook     (shipment data)
+  │               ├── workbook     (shipment data)
+  │               └── tracking     (milestones + exceptions)
   │                   │
   │                   └── Google Sheets API
   │                       ├── "Detail Data" sheet → shipment rows
@@ -59,6 +60,7 @@ src/
 │   ├── DashboardPage.jsx  # / — KPIs, charts, insights, nav cards
 │   ├── AnalyticsPage.jsx  # /analytics — filter summary, detail KPIs, charts, rankings
 │   ├── ShipmentsPage.jsx  # /shipments — searchable sortable paginated table
+│   ├── TrackingPage.jsx   # /tracking — milestones, exception queue
 │   └── AdminPage.jsx      # /admin — user CRUD
 ├── lib/
 │   ├── dashboard.js       # Data transforms (buildFilterOptions, etc.)
@@ -113,6 +115,7 @@ Derived data is computed with `useMemo` — `filteredRows`, `topPort`, `topCarri
 | `/` | Dashboard | compact (year + quarter filters) |
 | `/analytics` | Analytics | full (all filters) |
 | `/shipments` | Shipments | full (all filters) |
+| `/tracking` | Tracking | full (all filters) |
 | `/admin` | Admin | nav (no filters) |
 
 ## Authentication

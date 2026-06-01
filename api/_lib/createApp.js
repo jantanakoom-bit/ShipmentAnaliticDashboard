@@ -4,6 +4,7 @@ import { fileURLToPath } from "node:url";
 import { userItemHandler, usersCollectionHandler } from "./adminHandlers.js";
 import { aiChatHandler } from "./aiChatHandler.js";
 import { loginHandler, logoutHandler, requireSession as defaultRequireSession, sessionHandler } from "./authHandlers.js";
+import { trackingCollectionHandler, trackingExceptionsHandler } from "./trackingHandlers.js";
 import {
   buildAnalytics,
   clampNumber,
@@ -105,6 +106,14 @@ export function createApp({
     res.json(buildAnalytics(filtered, grain));
   }));
 
+  app.get("/api/tracking", asyncHandler((req, res) =>
+    trackingCollectionHandler(req, res, { requireSession: localSessionFromRequest, loadWorkbookData })
+  ));
+
+  app.get("/api/tracking/exceptions", asyncHandler((req, res) =>
+    trackingExceptionsHandler(req, res, { requireSession: localSessionFromRequest, loadWorkbookData })
+  ));
+
   return app;
 }
 
@@ -112,4 +121,8 @@ function asyncHandler(handler) {
   return (req, res, next) => {
     Promise.resolve(handler(req, res, next)).catch(next);
   };
+}
+
+async function localSessionFromRequest(req) {
+  return req.user ? { user: req.user } : null;
 }
