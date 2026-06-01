@@ -1,42 +1,18 @@
 import { useMemo, useState, useRef, useCallback } from "react";
 import { apiRequest } from "../lib/api";
 import { formatNumber, formatDate } from "../lib/utils";
-
-const COLUMNS = [
-  { key: "date", label: "Date" },
-  { key: "bookingNo", label: "Booking No" },
-  { key: "jobNo", label: "Job No" },
-  { key: "shipper", label: "Shipper" },
-  { key: "port", label: "Port" },
-  { key: "country", label: "Country" },
-  { key: "trade", label: "Trade" },
-  { key: "carrier", label: "Carrier" },
-  { key: "saleName", label: "Sale Name" },
-  { key: "qty", label: "Qty" },
-  { key: "unit", label: "Unit" },
-  { key: "teu", label: "TEU" },
-];
-
-const ROWS_PER_PAGE_OPTIONS = [25, 50, 100];
-const STATUS_OPTIONS = ["Booked", "Pending", "Loaded", "In Transit", "Completed", "Cancelled", "Unspecified"];
-
-const EMPTY_FORM = {
-  date: "",
-  bookingNo: "",
-  jobNo: "",
-  shipper: "",
-  port: "",
-  country: "",
-  trade: "",
-  carrier: "",
-  saleName: "",
-  qty: "",
-  unit: "",
-  teu: "",
-  status: "Booked",
-  ownerUserId: "",
-  ownerUsername: "",
-};
+import DeleteConfirmationDialog from "./shipments/DeleteConfirmationDialog";
+import ShipmentEditor from "./shipments/ShipmentEditor";
+import {
+  buildShipmentCsv,
+  buildShipmentTableModel,
+  EMPTY_SHIPMENT_FORM,
+  normalizeShipmentPayload,
+  nextSortState,
+  ROWS_PER_PAGE_OPTIONS,
+  rowToShipmentForm,
+  SHIPMENT_COLUMNS,
+} from "./shipments/shipmentTableModel";
 
 export default function ShipmentsPage({ filteredRows, currentUser, onDataRefresh }) {
   const [tableSearch, setTableSearch] = useState("");
@@ -44,13 +20,13 @@ export default function ShipmentsPage({ filteredRows, currentUser, onDataRefresh
   const [currentPage, setCurrentPage] = useState(1);
   const [rowsPerPage, setRowsPerPage] = useState(50);
   const [visibleColumns, setVisibleColumns] = useState(
-    () => new Set(COLUMNS.map((col) => col.key)),
+    () => new Set(SHIPMENT_COLUMNS.map((col) => col.key)),
   );
   const [colDropdownOpen, setColDropdownOpen] = useState(false);
   const [ownerFilter, setOwnerFilter] = useState("All");
   const [formMode, setFormMode] = useState("");
   const [activeRow, setActiveRow] = useState(null);
-  const [form, setForm] = useState(EMPTY_FORM);
+  const [form, setForm] = useState(EMPTY_SHIPMENT_FORM);
   const [saving, setSaving] = useState(false);
   const [message, setMessage] = useState("");
   const [deleteConfirmOpen, setDeleteConfirmOpen] = useState(false);
@@ -58,83 +34,33 @@ export default function ShipmentsPage({ filteredRows, currentUser, onDataRefresh
   const canCrud = Boolean(currentUser?.role);
   const canViewAll = currentUser?.role === "admin" || currentUser?.role === "moderator";
 
-  const ownerOptions = useMemo(() => {
-    return [...new Set(filteredRows.map((row) => row.ownerUsername || row.saleName).filter(Boolean))]
-      .sort((a, b) => a.localeCompare(b));
-  }, [filteredRows]);
+  const tableModel = useMemo(() => buildShipmentTableModel({
+    rows: filteredRows,
+    canViewAll,
+    ownerFilter,
+    tableSearch,
+    sortState,
+    currentPage,
+    rowsPerPage,
+    visibleColumns,
+  }), [canViewAll, currentPage, filteredRows, ownerFilter, rowsPerPage, sortState, tableSearch, visibleColumns]);
 
-  const ownerFilteredRows = useMemo(() => {
-    if (!canViewAll || ownerFilter === "All") {
-      return filteredRows;
-    }
-    return filteredRows.filter((row) => (row.ownerUsername || row.saleName) === ownerFilter);
-  }, [canViewAll, filteredRows, ownerFilter]);
-
-  const searchedRows = useMemo(() => {
-    const search = tableSearch.trim().toLowerCase();
-    if (!search) {
-      return ownerFilteredRows;
-    }
-    return ownerFilteredRows.filter((row) =>
-      [
-        row.bookingNo,
-        row.jobNo,
-        row.shipper,
-        row.port,
-        row.country,
-        row.trade,
-        row.carrier,
-        row.saleName,
-      ]
-        .join(" ")
-        .toLowerCase()
-        .includes(search),
-    );
-  }, [ownerFilteredRows, tableSearch]);
-
-  const sortedRows = useMemo(() => {
-    return [...searchedRows].sort((left, right) => {
-      const { key, direction } = sortState;
-      const modifier = direction === "asc" ? 1 : -1;
-      let leftValue = left[key];
-      let rightValue = right[key];
-
-      if (key === "date") {
-        leftValue = left.date ? left.date.getTime() : 0;
-        rightValue = right.date ? right.date.getTime() : 0;
-      }
-
-      if (typeof leftValue === "number" && typeof rightValue === "number") {
-        return (leftValue - rightValue) * modifier;
-      }
-
-      return `${leftValue ?? ""}`.localeCompare(`${rightValue ?? ""}`) * modifier;
-    });
-  }, [searchedRows, sortState]);
-
-  const totalPages = Math.max(1, Math.ceil(sortedRows.length / rowsPerPage));
-  const safePage = Math.min(currentPage, totalPages);
-  const pageStart = (safePage - 1) * rowsPerPage;
-  const pageEnd = Math.min(pageStart + rowsPerPage, sortedRows.length);
-  const pageRows = sortedRows.slice(pageStart, pageEnd);
-
-  const totals = useMemo(() => {
-    let qty = 0;
-    let teu = 0;
-    for (const row of searchedRows) {
-      qty += row.qty;
-      teu += row.teu;
-    }
-    return { qty, teu };
-  }, [searchedRows]);
+  const {
+    ownerOptions,
+    searchedRows,
+    sortedRows,
+    totalPages,
+    safePage,
+    pageStart,
+    pageEnd,
+    pageRows,
+    totals,
+    visibleColumnList,
+    visibleColSpan,
+  } = tableModel;
 
   function toggleSort(key) {
-    setSortState((current) => {
-      if (current.key === key) {
-        return { key, direction: current.direction === "asc" ? "desc" : "asc" };
-      }
-      return { key, direction: key === "date" ? "asc" : "desc" };
-    });
+    setSortState((current) => nextSortState(current, key));
     setCurrentPage(1);
   }
 
@@ -163,7 +89,7 @@ export default function ShipmentsPage({ filteredRows, currentUser, onDataRefresh
   }
 
   function openCreateForm() {
-    setForm(EMPTY_FORM);
+    setForm(EMPTY_SHIPMENT_FORM);
     setActiveRow(null);
     setFormMode("create");
     setDeleteConfirmOpen(false);
@@ -172,7 +98,7 @@ export default function ShipmentsPage({ filteredRows, currentUser, onDataRefresh
 
   function openDetail(row) {
     setActiveRow(row);
-    setForm(rowToForm(row));
+    setForm(rowToShipmentForm(row));
     setFormMode("detail");
     setDeleteConfirmOpen(false);
     setMessage("");
@@ -181,7 +107,7 @@ export default function ShipmentsPage({ filteredRows, currentUser, onDataRefresh
   function closeForm() {
     setFormMode("");
     setActiveRow(null);
-    setForm(EMPTY_FORM);
+    setForm(EMPTY_SHIPMENT_FORM);
     setDeleteConfirmOpen(false);
   }
 
@@ -203,7 +129,7 @@ export default function ShipmentsPage({ filteredRows, currentUser, onDataRefresh
     try {
       await apiRequest("/api/shipments", {
         method: "POST",
-        body: JSON.stringify(normalizePayload(form, canViewAll)),
+        body: JSON.stringify(normalizeShipmentPayload(form, canViewAll)),
       });
       closeForm();
       await refreshAfterChange("Shipment created successfully");
@@ -222,7 +148,7 @@ export default function ShipmentsPage({ filteredRows, currentUser, onDataRefresh
     try {
       await apiRequest(`/api/shipments/${encodeURIComponent(activeRow.recordId)}`, {
         method: "PATCH",
-        body: JSON.stringify(normalizePayload(form, canViewAll)),
+        body: JSON.stringify(normalizeShipmentPayload(form, canViewAll)),
       });
       await refreshAfterChange("Shipment updated successfully");
     } catch (error) {
@@ -261,26 +187,7 @@ export default function ShipmentsPage({ filteredRows, currentUser, onDataRefresh
   }
 
   const exportCsv = useCallback(() => {
-    const visibleCols = COLUMNS.filter((col) => visibleColumns.has(col.key));
-    const header = visibleCols.map((col) => col.label).join(",");
-    const rows = sortedRows.map((row) =>
-      visibleCols
-        .map((col) => {
-          let value;
-          if (col.key === "date") {
-            value = formatDate(row.date);
-          } else {
-            value = row[col.key] ?? "";
-          }
-          const str = String(value);
-          if (str.includes(",") || str.includes('"') || str.includes("\n")) {
-            return `"${str.replace(/"/g, '""')}"`;
-          }
-          return str;
-        })
-        .join(","),
-    );
-    const csv = [header, ...rows].join("\n");
+    const csv = buildShipmentCsv(sortedRows, visibleColumns);
     const blob = new Blob([csv], { type: "text/csv;charset=utf-8;" });
     const url = URL.createObjectURL(blob);
     const link = document.createElement("a");
@@ -293,34 +200,8 @@ export default function ShipmentsPage({ filteredRows, currentUser, onDataRefresh
   }, [sortedRows, visibleColumns]);
 
   const pageNumbers = useMemo(() => {
-    const pages = [];
-    if (totalPages <= 5) {
-      for (let i = 1; i <= totalPages; i++) {
-        pages.push(i);
-      }
-      return { numbers: pages, lastPage: null };
-    }
-    const start = Math.max(1, safePage - 2);
-    const end = Math.min(totalPages, start + 4);
-    const adjustedStart = Math.max(1, end - 4);
-    for (let i = adjustedStart; i <= end; i++) {
-      pages.push(i);
-    }
-    return {
-      numbers: pages,
-      lastPage: pages[pages.length - 1] < totalPages ? totalPages : null,
-    };
+    return buildPageNumbers(totalPages, safePage);
   }, [totalPages, safePage]);
-
-  const visibleColSpan = useMemo(() => {
-    let count = 0;
-    for (const col of COLUMNS) {
-      if (visibleColumns.has(col.key)) {
-        count++;
-      }
-    }
-    return count;
-  }, [visibleColumns]);
 
   return (
     <section className="table-section">
@@ -374,7 +255,7 @@ export default function ShipmentsPage({ filteredRows, currentUser, onDataRefresh
             </button>
             {colDropdownOpen && (
               <div className="col-dropdown open">
-                {COLUMNS.map((col) => (
+                {SHIPMENT_COLUMNS.map((col) => (
                   <label className="col-opt" key={col.key}>
                     <input
                       type="checkbox"
@@ -460,14 +341,14 @@ export default function ShipmentsPage({ filteredRows, currentUser, onDataRefresh
         <table className="shipment-detail-table">
           <colgroup>
             {canCrud ? <col className="shipment-col-actions" /> : null}
-            {COLUMNS.filter((col) => visibleColumns.has(col.key)).map((col) => (
+            {visibleColumnList.map((col) => (
               <col className={`shipment-col-${col.key}`} key={col.key} />
             ))}
           </colgroup>
           <thead>
             <tr>
               {canCrud ? <th>Actions</th> : null}
-              {COLUMNS.filter((col) => visibleColumns.has(col.key)).map((col) => (
+              {visibleColumnList.map((col) => (
                 <th
                   key={col.key}
                   className={sortState.key === col.key ? sortState.direction : ""}
@@ -596,143 +477,22 @@ export default function ShipmentsPage({ filteredRows, currentUser, onDataRefresh
   );
 }
 
-function DeleteConfirmationDialog({ row, saving, message, onCancel, onConfirm }) {
-  const title = `Delete shipment ${row?.bookingNo || row?.recordId}?`;
-  return (
-    <div className="shipment-confirm">
-      <div className="shipment-confirm-backdrop" aria-hidden="true" />
-      <div
-        className="shipment-confirm-dialog"
-        role="dialog"
-        aria-modal="true"
-        aria-labelledby="shipment-confirm-title"
-      >
-        <div className="top-title" id="shipment-confirm-title">{title}</div>
-        <p className="shipment-confirm-copy">
-          This action will remove the shipment from the active list.
-        </p>
-        {message ? <div className="inline-error shipment-confirm-message">{message}</div> : null}
-        <div className="shipment-confirm-actions">
-          <button className="btn" type="button" onClick={onCancel} disabled={saving}>
-            Cancel
-          </button>
-          <button className="btn btn-danger" type="button" onClick={onConfirm} disabled={saving}>
-            Confirm Delete
-          </button>
-        </div>
-      </div>
-    </div>
-  );
-}
-
-function ShipmentEditor({
-  mode,
-  form,
-  row,
-  titleId,
-  canViewAll,
-  saving,
-  onChange,
-  onCreate,
-  onUpdate,
-  onDelete,
-  onClose,
-}) {
-  const isCreate = mode === "create";
-  return (
-    <section className="shipment-editor" aria-label="Shipment editor">
-      <div className="admin-head">
-        <div>
-          <div className="top-title" id={titleId}>{isCreate ? "Add Shipment" : `Shipment Detail: ${row?.bookingNo || row?.recordId}`}</div>
-          <div className="chart-sub">{isCreate ? "Create a record owned by the current session" : "Review and update shipment fields"}</div>
-        </div>
-        <button className="btn" type="button" onClick={onClose}>Close</button>
-      </div>
-      <form className="shipment-form" onSubmit={isCreate ? onCreate : onUpdate}>
-        <ShipmentInput label="Date" value={form.date} onChange={(value) => onChange("date", value)} type="date" />
-        <ShipmentInput label="Booking No" value={form.bookingNo} onChange={(value) => onChange("bookingNo", value)} />
-        <ShipmentInput label="Job No" value={form.jobNo} onChange={(value) => onChange("jobNo", value)} />
-        <ShipmentInput label="Shipper" value={form.shipper} onChange={(value) => onChange("shipper", value)} />
-        <ShipmentInput label="Port" value={form.port} onChange={(value) => onChange("port", value)} />
-        <ShipmentInput label="Country" value={form.country} onChange={(value) => onChange("country", value)} />
-        <ShipmentInput label="Trade" value={form.trade} onChange={(value) => onChange("trade", value)} />
-        <ShipmentInput label="Carrier" value={form.carrier} onChange={(value) => onChange("carrier", value)} />
-        <ShipmentInput label="Sale Name" value={form.saleName} onChange={(value) => onChange("saleName", value)} />
-        <ShipmentInput label="Qty" value={form.qty} onChange={(value) => onChange("qty", value)} type="number" />
-        <ShipmentInput label="Unit" value={form.unit} onChange={(value) => onChange("unit", value)} />
-        <ShipmentInput label="TEU" value={form.teu} onChange={(value) => onChange("teu", value)} type="number" />
-        <label className="form-group">
-          <span className="form-label">Status</span>
-          <select className="form-select" value={form.status} onChange={(event) => onChange("status", event.target.value)}>
-            {STATUS_OPTIONS.map((status) => (
-              <option key={status} value={status}>{status}</option>
-            ))}
-          </select>
-        </label>
-        {canViewAll ? (
-          <>
-            <ShipmentInput label="Owner user id" value={form.ownerUserId} onChange={(value) => onChange("ownerUserId", value)} />
-            <ShipmentInput label="Owner username" value={form.ownerUsername} onChange={(value) => onChange("ownerUsername", value)} />
-          </>
-        ) : null}
-        <div className="shipment-form-actions">
-          <button className="btn btn-primary" type="submit" disabled={saving || (!isCreate && !row?.recordId)}>
-            {isCreate ? "Create Shipment" : "Save Changes"}
-          </button>
-          {!isCreate ? (
-            <button className="btn btn-danger" type="button" disabled={saving || !row?.recordId} onClick={onDelete}>
-              Delete Shipment
-            </button>
-          ) : null}
-        </div>
-      </form>
-    </section>
-  );
-}
-
-function ShipmentInput({ label, value, onChange, type = "text" }) {
-  return (
-    <label className="form-group">
-      <span className="form-label">{label}</span>
-      <input
-        className="form-input"
-        type={type}
-        value={value}
-        onChange={(event) => onChange(event.target.value)}
-      />
-    </label>
-  );
-}
-
-function rowToForm(row) {
-  return {
-    date: row.date ? formatDate(row.date) : "",
-    bookingNo: row.bookingNo || "",
-    jobNo: row.jobNo || "",
-    shipper: row.shipper || "",
-    port: row.port || "",
-    country: row.country || "",
-    trade: row.trade || "",
-    carrier: row.carrier || "",
-    saleName: row.saleName || "",
-    qty: row.qty ?? "",
-    unit: row.unit || "",
-    teu: row.teu ?? "",
-    status: row.status || "Booked",
-    ownerUserId: row.ownerUserId || "",
-    ownerUsername: row.ownerUsername || "",
-  };
-}
-
-function normalizePayload(form, includeOwner) {
-  const payload = {
-    ...form,
-    qty: Number(form.qty) || 0,
-    teu: Number(form.teu) || 0,
-  };
-  if (!includeOwner) {
-    delete payload.ownerUserId;
-    delete payload.ownerUsername;
+function buildPageNumbers(totalPages, safePage) {
+  const pages = [];
+  if (totalPages <= 5) {
+    for (let i = 1; i <= totalPages; i++) {
+      pages.push(i);
+    }
+    return { numbers: pages, lastPage: null };
   }
-  return payload;
+  const start = Math.max(1, safePage - 2);
+  const end = Math.min(totalPages, start + 4);
+  const adjustedStart = Math.max(1, end - 4);
+  for (let i = adjustedStart; i <= end; i++) {
+    pages.push(i);
+  }
+  return {
+    numbers: pages,
+    lastPage: pages[pages.length - 1] < totalPages ? totalPages : null,
+  };
 }
