@@ -2808,6 +2808,29 @@ tbody td {
   font-weight: 600;
 }
 
+.ai-chat-head-actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.ai-chat-new {
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  background: #fff;
+  color: var(--text-sec);
+  font-size: 11px;
+  font-weight: 700;
+  padding: 5px 10px;
+  cursor: pointer;
+  white-space: nowrap;
+}
+
+.ai-chat-new:hover {
+  background: var(--surface2);
+  color: var(--text);
+}
+
 .ai-chat-close {
   width: 30px;
   height: 30px;
