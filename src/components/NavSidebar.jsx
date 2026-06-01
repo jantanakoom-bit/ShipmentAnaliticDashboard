@@ -114,6 +114,22 @@ export default function NavSidebar({
                 onClearAll={() => onSetAllDate("quarters", [])}
               />
             </div>
+
+            <div className="filter-section">
+              <div className="filter-label">Month</div>
+              <ChipMultiSelect
+                options={monthOptions}
+                selected={dateFilters.months}
+                onToggle={(value) => onToggleDateFilter("months", value)}
+                onSelectAll={() =>
+                  onSetAllDate(
+                    "months",
+                    monthOptions.map((item) => item.value),
+                  )
+                }
+                onClearAll={() => onSetAllDate("months", [])}
+              />
+            </div>
           </div>
         )}
 
