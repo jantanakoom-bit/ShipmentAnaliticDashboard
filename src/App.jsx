@@ -108,6 +108,11 @@ export default function App() {
     };
   }, [isAuthenticated]);
 
+  async function refreshWorkbookData() {
+    const data = await loadWorkbookData();
+    initializeFromData(data);
+  }
+
   function initializeFromData(data) {
     const filterOptions = buildFilterOptions(data.detailData);
     const monthSelection = [...new Set(data.detailData.map((row) => String(row.monthNumber)).filter(Boolean))].sort();
@@ -264,6 +269,7 @@ export default function App() {
       onSetSelected={setSelected}
       onSetSearches={setSearches}
       onSelectAll={() => initializeFromData({ detailData: state.detailData, metadata: state.metadata })}
+      onDataRefresh={refreshWorkbookData}
       state={state}
       filteredRows={filteredRows}
       totalQty={totalQty}
@@ -440,7 +446,7 @@ function AppShell(props) {
             />
             <Route
               path="/shipments"
-              element={<ShipmentsPage filteredRows={props.filteredRows} />}
+              element={<ShipmentsPage filteredRows={props.filteredRows} currentUser={props.currentUser} onDataRefresh={props.onDataRefresh} />}
             />
             <Route
               path="/tracking"

@@ -2518,6 +2518,50 @@ tbody td {
   color: var(--text-sec);
 }
 
+.role-moderator {
+  background: #d1fae5;
+  color: #047857;
+}
+
+.shipment-editor {
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: var(--surface);
+  margin: 16px 0;
+  padding: 18px;
+}
+
+.shipment-form {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+  gap: 14px;
+}
+
+.shipment-form-actions {
+  display: flex;
+  align-items: flex-end;
+  gap: 10px;
+  grid-column: 1 / -1;
+}
+
+.shipment-message {
+  margin: 12px 0;
+}
+
+.owner-filter {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  color: var(--text-sec);
+  font-size: 12px;
+}
+
+.btn-danger {
+  border-color: #fecaca;
+  background: #fee2e2;
+  color: #991b1b;
+}
+
 .status-badge {
   display: inline-flex;
   align-items: center;

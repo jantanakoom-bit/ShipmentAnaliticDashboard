@@ -64,7 +64,7 @@ export default function NavSidebar({
       <div className="nav-sidebar-body">
         <nav className="nav-section">
           <div className="nav-section-title">Pages</div>
-          {NAV_ITEMS.map((item) => (
+          {NAV_ITEMS.filter((item) => item.to !== "/admin" || currentUser?.role === "admin").map((item) => (
             <NavLink
               key={item.to}
               to={item.to}

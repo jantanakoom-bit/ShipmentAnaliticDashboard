@@ -117,6 +117,68 @@ describe("ShipmentsPage", () => {
     expect(click).toHaveBeenCalledTimes(1);
     expect(revokeObjectURL).toHaveBeenCalledWith("blob:shipments");
   });
+
+  test("creates, updates, and soft-deletes shipments with role-aware controls", async () => {
+    const user = userEvent.setup();
+    const onDataRefresh = vi.fn();
+    apiRequest.mockImplementation(async (path, options = {}) => {
+      if (path === "/api/shipments" && options.method === "POST") {
+        return { row: { ...shipmentRows[0], recordId: "rec-created", bookingNo: "BK-NEW" } };
+      }
+      if (path === "/api/shipments/rec-001" && options.method === "PATCH") {
+        return { row: { ...shipmentRows[0], status: "Completed" } };
+      }
+      if (path === "/api/shipments/rec-001" && options.method === "DELETE") {
+        return { row: { ...shipmentRows[0], isDeleted: true } };
+      }
+      throw new Error(`Unhandled request: ${path}`);
+    });
+
+    renderWithRouter(
+      <ShipmentsPage
+        filteredRows={[{ ...shipmentRows[0], recordId: "rec-001", ownerUserId: "user-1" }]}
+        currentUser={normalUser}
+        onDataRefresh={onDataRefresh}
+      />,
+    );
+
+    expect(screen.queryByLabelText("Owner user id")).not.toBeInTheDocument();
+    await user.click(screen.getByRole("button", { name: "Add Shipment" }));
+    await user.type(screen.getByLabelText("Booking No"), "BK-NEW");
+    await user.type(screen.getByLabelText("Job No"), "JOB-NEW");
+    await user.type(screen.getByLabelText("Shipper"), "Created Co");
+    await user.click(screen.getByRole("button", { name: "Create Shipment" }));
+
+    await user.click(screen.getByRole("button", { name: "View BK-001" }));
+    expect(screen.getByText("Shipment Detail: BK-001")).toBeInTheDocument();
+    await user.selectOptions(screen.getByLabelText("Status"), "Completed");
+    await user.click(screen.getByRole("button", { name: "Save Changes" }));
+    await user.click(screen.getByRole("button", { name: "Delete Shipment" }));
+
+    await waitFor(() => {
+      expect(apiRequest).toHaveBeenCalledWith("/api/shipments", expect.objectContaining({ method: "POST" }));
+      expect(apiRequest).toHaveBeenCalledWith("/api/shipments/rec-001", expect.objectContaining({ method: "PATCH" }));
+      expect(apiRequest).toHaveBeenCalledWith("/api/shipments/rec-001", expect.objectContaining({ method: "DELETE" }));
+      expect(onDataRefresh).toHaveBeenCalledTimes(3);
+    });
+  });
+
+  test("shows owner filter and owner fields for moderator/admin shipment management", async () => {
+    renderWithRouter(
+      <ShipmentsPage
+        filteredRows={shipmentRows.map((row, index) => ({
+          ...row,
+          recordId: `rec-${index + 1}`,
+          ownerUsername: index === 1 ? "mint" : "pan",
+        }))}
+        currentUser={{ ...adminUser, role: "moderator" }}
+        onDataRefresh={vi.fn()}
+      />,
+    );
+
+    expect(screen.getByLabelText("Sales Person")).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Add Shipment" })).toBeInTheDocument();
+  });
 });
 
 describe("TrackingPage", () => {

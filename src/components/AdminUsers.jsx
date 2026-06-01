@@ -58,6 +58,12 @@ export default function AdminUsers({ onClose }) {
     await patchUser(user, { password });
   }
 
+  function nextRole(role) {
+    if (role === "user") return "moderator";
+    if (role === "moderator") return "admin";
+    return "user";
+  }
+
   return (
     <section className="admin-panel">
       <div className="admin-head">
@@ -76,6 +82,7 @@ export default function AdminUsers({ onClose }) {
         <input className="auth-input" placeholder="Password" type="password" value={form.password} onChange={(event) => setForm((current) => ({ ...current, password: event.target.value }))} />
         <select className="auth-input" value={form.role} onChange={(event) => setForm((current) => ({ ...current, role: event.target.value }))}>
           <option value="user">user</option>
+          <option value="moderator">moderator</option>
           <option value="admin">admin</option>
         </select>
         <button className="primary-button" type="submit">
@@ -108,7 +115,7 @@ export default function AdminUsers({ onClose }) {
                 <td>{user.lastLoginAt || "-"}</td>
                 <td>
                   <div className="admin-actions">
-                    <button className="ms-btn-sa" type="button" onClick={() => patchUser(user, { role: user.role === "admin" ? "user" : "admin" })}>
+                    <button className="ms-btn-sa" type="button" onClick={() => patchUser(user, { role: nextRole(user.role) })}>
                       Role
                     </button>
                     <button className="ms-btn-sa" type="button" onClick={() => resetPassword(user)}>

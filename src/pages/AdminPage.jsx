@@ -17,8 +17,9 @@ export default function AdminPage({ currentUser }) {
     const total = users.length;
     const active = users.filter((u) => u.status === "active").length;
     const admins = users.filter((u) => u.role === "admin").length;
+    const moderators = users.filter((u) => u.role === "moderator").length;
     const disabled = users.filter((u) => u.status === "disabled").length;
-    return { total, active, admins, disabled };
+    return { total, active, admins, moderators, disabled };
   }, [users]);
 
   function showToast(msg) {
@@ -77,6 +78,12 @@ export default function AdminPage({ currentUser }) {
     await patchUser(user, { password });
   }
 
+  function nextRole(role) {
+    if (role === "user") return "moderator";
+    if (role === "moderator") return "admin";
+    return "user";
+  }
+
   if (currentUser?.role !== "admin") {
     return (
       <div className="page-admin">
@@ -125,7 +132,7 @@ export default function AdminPage({ currentUser }) {
           <div>
             <div className="stat-label">Admins</div>
             <div className="stat-value">{stats.admins}</div>
-            <div className="stat-sub">Full access</div>
+            <div className="stat-sub">{stats.moderators} moderators</div>
           </div>
         </div>
         <div className="stat-card">
@@ -179,6 +186,7 @@ export default function AdminPage({ currentUser }) {
               onChange={(event) => setForm((current) => ({ ...current, role: event.target.value }))}
             >
               <option value="user">User</option>
+              <option value="moderator">Moderator</option>
               <option value="admin">Admin</option>
             </select>
           </div>
@@ -226,7 +234,7 @@ export default function AdminPage({ currentUser }) {
                         <button
                           className="btn-sm btn-role"
                           type="button"
-                          onClick={() => patchUser(user, { role: user.role === "admin" ? "user" : "admin" })}
+                          onClick={() => patchUser(user, { role: nextRole(user.role) })}
                         >
                           Role
                         </button>
