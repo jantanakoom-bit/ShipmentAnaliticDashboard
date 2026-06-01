@@ -3263,6 +3263,152 @@ tbody td {
   color: #9f1239;
 }
 
+.tracking-action-cell {
+  align-items: flex-start;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  min-width: 180px;
+}
+
+.action-status,
+.priority-chip,
+.owner-chip {
+  border-radius: 999px;
+  display: inline-flex;
+  font-size: 10px;
+  font-weight: 800;
+  line-height: 1;
+  padding: 5px 7px;
+  text-transform: capitalize;
+  white-space: nowrap;
+}
+
+.action-open {
+  background: #dbeafe;
+  color: #1d4ed8;
+}
+
+.action-in_progress {
+  background: #ccfbf1;
+  color: #0f766e;
+}
+
+.action-waiting {
+  background: #fef3c7;
+  color: #92400e;
+}
+
+.action-resolved {
+  background: #dcfce7;
+  color: #166534;
+}
+
+.priority-low,
+.priority-normal {
+  background: var(--surface2);
+  color: var(--text-sec);
+}
+
+.priority-high {
+  background: #ffedd5;
+  color: #9a3412;
+}
+
+.priority-urgent {
+  background: #fee2e2;
+  color: #991b1b;
+}
+
+.owner-chip {
+  background: #ede9fe;
+  color: #5b21b6;
+}
+
+.owner-chip.muted {
+  background: var(--surface2);
+  color: var(--muted);
+}
+
+.modal-backdrop {
+  align-items: center;
+  background: rgba(15, 23, 42, 0.48);
+  display: flex;
+  inset: 0;
+  justify-content: center;
+  padding: 24px;
+  position: fixed;
+  z-index: 1000;
+}
+
+.action-dialog {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  box-shadow: 0 24px 70px rgba(15, 23, 42, 0.26);
+  max-height: calc(100vh - 48px);
+  overflow: auto;
+  padding: 18px;
+  width: min(680px, calc(100vw - 32px));
+}
+
+.modal-head,
+.modal-actions {
+  align-items: center;
+  display: flex;
+  gap: 10px;
+  justify-content: space-between;
+}
+
+.shipment-form-grid {
+  display: grid;
+  gap: 14px;
+  grid-template-columns: repeat(auto-fit, minmax(190px, 1fr));
+  margin: 16px 0;
+}
+
+.shipment-form-grid label {
+  display: grid;
+  gap: 6px;
+}
+
+.shipment-form-grid span {
+  color: var(--muted);
+  font-size: 12px;
+  font-weight: 700;
+}
+
+.shipment-form-grid input,
+.shipment-form-grid select,
+.shipment-form-grid textarea {
+  background: var(--surface2);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  color: var(--ink);
+  font: inherit;
+  min-height: 36px;
+  padding: 8px 10px;
+}
+
+.shipment-form-grid textarea {
+  resize: vertical;
+}
+
+.full-span {
+  grid-column: 1 / -1;
+}
+
+.form-error {
+  background: #fee2e2;
+  border: 1px solid #fecaca;
+  border-radius: 6px;
+  color: #991b1b;
+  font-size: 12px;
+  font-weight: 700;
+  margin-bottom: 14px;
+  padding: 10px 12px;
+}
+
 @media (max-width: 920px) {
   .tracking-header,
   .tracking-grid {

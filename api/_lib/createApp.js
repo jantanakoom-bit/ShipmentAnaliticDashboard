@@ -5,7 +5,7 @@ import { userItemHandler, usersCollectionHandler } from "./adminHandlers.js";
 import { aiChatHandler } from "./aiChatHandler.js";
 import { loginHandler, logoutHandler, requireSession as defaultRequireSession, sessionHandler } from "./authHandlers.js";
 import { analyticsHandler, metadataHandler, shipmentItemHandler, shipmentsCollectionHandler, workbookHandler } from "./shipmentHandlers.js";
-import { trackingCollectionHandler, trackingExceptionsHandler } from "./trackingHandlers.js";
+import { trackingCollectionHandler, trackingExceptionItemHandler, trackingExceptionsHandler } from "./trackingHandlers.js";
 import {
   loadWorkbookData as defaultLoadWorkbookData,
   resolveWorkbookPath as defaultResolveWorkbookPath,
@@ -22,6 +22,7 @@ export function createApp({
   resolveWorkbookPath = defaultResolveWorkbookPath,
   requireSession = defaultRequireSession,
   shipmentStore,
+  trackingStore,
   openAIClient,
   authDeps,
 } = {}) {
@@ -77,6 +78,9 @@ export function createApp({
 
   app.get("/api/tracking/exceptions", asyncHandler((req, res) =>
     trackingExceptionsHandler(req, res, { requireSession: localSessionFromRequest, loadWorkbookData })
+  ));
+  app.patch("/api/tracking/exceptions/:id", asyncHandler((req, res) =>
+    trackingExceptionItemHandler(req, res, req.params.id, { requireSession: localSessionFromRequest, loadWorkbookData, trackingStore })
   ));
 
   app.use((error, req, res, next) => {

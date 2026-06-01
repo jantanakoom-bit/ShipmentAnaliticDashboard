@@ -263,7 +263,7 @@ function AppShell(props) {
             />
             <Route
               path="/tracking"
-              element={<TrackingPage filteredRows={props.filteredRows} />}
+              element={<TrackingPage filteredRows={props.filteredRows} onDataRefresh={props.onDataRefresh} />}
             />
             <Route
               path="/admin"
