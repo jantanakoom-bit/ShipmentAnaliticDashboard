@@ -2,7 +2,7 @@ import { randomUUID } from "node:crypto";
 import { getSheetsClient, requiredEnv } from "./googleSheets.js";
 import { canViewAllSalesData } from "./rbac.js";
 import { getWriteCacheBuster, invalidateShipmentWriteCache } from "./shipmentWriteCache.js";
-import { normalizeWorkbookRow } from "./workbook.js";
+import { buildBoundedSheetRange, columnName, normalizeWorkbookRow, validateSheetBounds } from "./workbook.js";
 
 const DETAIL_SHEET = process.env.DATA_SHEET_NAME || "Detail Data";
 
@@ -206,9 +206,9 @@ async function readDetailSheet(requiredHeaders = CRUD_HEADERS, { ensureSchema = 
     spreadsheetId: requiredEnv("GOOGLE_SHEET_ID"),
     range: schema.headers.length
       ? `${DETAIL_SHEET}!A:${columnName(schema.headers.length)}`
-      : `${DETAIL_SHEET}!A:ZZ`,
+      : buildBoundedSheetRange(DETAIL_SHEET),
   });
-  const rows = response.data.values || [];
+  const rows = validateSheetBounds(response.data.values || []);
   const headers = (rows[0] || schema.headers).map((header) => `${header ?? ""}`.trim());
   return {
     headers,
@@ -277,15 +277,4 @@ function formatSheetValue(value) {
     return "";
   }
   return value;
-}
-
-function columnName(index) {
-  let result = "";
-  let current = index;
-  while (current > 0) {
-    const remainder = (current - 1) % 26;
-    result = String.fromCharCode(65 + remainder) + result;
-    current = Math.floor((current - 1) / 26);
-  }
-  return result;
 }

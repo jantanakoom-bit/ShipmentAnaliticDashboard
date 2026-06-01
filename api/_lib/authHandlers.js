@@ -2,22 +2,43 @@ import { clearSessionCookie, createSessionToken, readSession, setSessionCookie }
 import { findUserById, findUserByUsername, recordLogin, toPublicUser, verifyPassword } from "./users.js";
 import { getRequestBody, sendJson, sendMethodNotAllowed } from "./http.js";
 import { canManageUsers } from "./rbac.js";
+import * as defaultLoginThrottle from "./loginThrottle.js";
 
-export async function loginHandler(req, res) {
+export async function loginHandler(req, res, deps = {}) {
   if (req.method !== "POST") return sendMethodNotAllowed(res, ["POST"]);
 
+  const throttle = deps.loginThrottle || defaultLoginThrottle;
   const { username, password } = getRequestBody(req);
-  const user = await findUserByUsername(username, { fresh: true });
-  const valid = user && user.status === "active" && (await verifyPassword(user, password));
+  const ip = throttle.getClientIp ? throttle.getClientIp(req) : defaultLoginThrottle.getClientIp(req);
+  const loginAllowed = throttle.checkLoginAllowed({ username, ip });
+  if (!loginAllowed.allowed) {
+    return sendJson(
+      res,
+      429,
+      { error: "Too many login attempts. Please try again later." },
+      { "Retry-After": String(loginAllowed.retryAfter) },
+    );
+  }
+
+  const findUsername = deps.findUserByUsername || findUserByUsername;
+  const verifyUserPassword = deps.verifyPassword || verifyPassword;
+  const user = await findUsername(username, { fresh: true });
+  const valid = user && user.status === "active" && (await verifyUserPassword(user, password));
 
   if (!valid) {
+    throttle.recordLoginFailure({ username, ip });
     return sendJson(res, 401, { error: "Invalid username or password" });
   }
 
-  const token = await createSessionToken(user);
-  setSessionCookie(res, token);
-  await recordLogin(user);
-  return sendJson(res, 200, { user: toPublicUser(user) });
+  throttle.recordLoginSuccess({ username, ip });
+  const createToken = deps.createSessionToken || createSessionToken;
+  const setCookie = deps.setSessionCookie || setSessionCookie;
+  const recordUserLogin = deps.recordLogin || recordLogin;
+  const toPublic = deps.toPublicUser || toPublicUser;
+  const token = await createToken(user);
+  setCookie(res, token);
+  await recordUserLogin(user);
+  return sendJson(res, 200, { user: toPublic(user) });
 }
 
 export async function logoutHandler(req, res) {

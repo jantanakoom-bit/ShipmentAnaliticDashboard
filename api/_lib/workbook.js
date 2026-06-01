@@ -3,6 +3,8 @@ import { getWriteCacheBuster } from "./shipmentWriteCache.js";
 
 const DETAIL_SHEET = process.env.DATA_SHEET_NAME || "Detail Data";
 const CACHE_MS = 45 * 1000;
+const DEFAULT_MAX_ROWS = 10000;
+const DEFAULT_MAX_COLUMNS = 128;
 
 let dataCache = null;
 let cachedAt = 0;
@@ -24,10 +26,10 @@ export async function loadWorkbookData() {
 
   const sheets = getSheetsClient();
   const spreadsheetId = requiredEnv("GOOGLE_SHEET_ID");
-  const range = `${DETAIL_SHEET}!A:ZZ`;
+  const range = buildBoundedSheetRange(DETAIL_SHEET);
 
   const response = await sheets.spreadsheets.values.get({ spreadsheetId, range });
-  const rows = response.data.values || [];
+  const rows = validateSheetBounds(response.data.values || []);
 
   if (rows.length < 2) {
     throw new Error(`Sheet "${DETAIL_SHEET}" is empty or has no data rows.`);
@@ -132,6 +134,52 @@ export function clampNumber(value, min, max, fallback) {
   const num = Number(value);
   if (!Number.isFinite(num)) return fallback;
   return Math.min(max, Math.max(min, Math.trunc(num)));
+}
+
+export function buildBoundedSheetRange(sheetName, { maxRows = getWorkbookMaxRows(), maxColumns = getWorkbookMaxColumns() } = {}) {
+  return `${sheetName}!A1:${columnName(maxColumns + 1)}${maxRows + 2}`;
+}
+
+export function validateSheetBounds(rows, { maxRows = getWorkbookMaxRows(), maxColumns = getWorkbookMaxColumns() } = {}) {
+  if (rows.length > maxRows + 1) {
+    throwWorkbookLimitError(`Workbook row limit exceeded. Maximum data rows: ${maxRows}.`);
+  }
+
+  if (rows.some((row) => row.length > maxColumns)) {
+    throwWorkbookLimitError(`Workbook column limit exceeded. Maximum columns: ${maxColumns}.`);
+  }
+
+  return rows;
+}
+
+export function columnName(index) {
+  let result = "";
+  let current = index;
+  while (current > 0) {
+    const remainder = (current - 1) % 26;
+    result = String.fromCharCode(65 + remainder) + result;
+    current = Math.floor((current - 1) / 26);
+  }
+  return result;
+}
+
+function getWorkbookMaxRows() {
+  return getEnvNumber("WORKBOOK_MAX_ROWS", DEFAULT_MAX_ROWS);
+}
+
+function getWorkbookMaxColumns() {
+  return getEnvNumber("WORKBOOK_MAX_COLUMNS", DEFAULT_MAX_COLUMNS);
+}
+
+function getEnvNumber(key, fallback) {
+  const value = Number(process.env[key]);
+  return Number.isFinite(value) && value > 0 ? Math.trunc(value) : fallback;
+}
+
+function throwWorkbookLimitError(message) {
+  const error = new Error(message);
+  error.status = 413;
+  throw error;
 }
 
 export function normalizeWorkbookRow(row) {

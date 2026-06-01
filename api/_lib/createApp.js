@@ -10,6 +10,7 @@ import {
   loadWorkbookData as defaultLoadWorkbookData,
   resolveWorkbookPath as defaultResolveWorkbookPath,
 } from "./workbook.js";
+import { securityHeadersMiddleware } from "./security.js";
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -22,26 +23,14 @@ export function createApp({
   requireSession = defaultRequireSession,
   shipmentStore,
   openAIClient,
+  authDeps,
 } = {}) {
   const app = express();
 
   app.use(express.json());
-  app.use((req, res, next) => {
-    const origin = process.env.CORS_ORIGIN || req.headers.origin || "*";
-    res.setHeader("Access-Control-Allow-Origin", origin);
-    res.setHeader("Access-Control-Allow-Credentials", "true");
-    res.setHeader("Access-Control-Allow-Headers", "Content-Type");
-    res.setHeader("Access-Control-Allow-Methods", "GET,POST,PATCH,DELETE,OPTIONS");
+  app.use(securityHeadersMiddleware);
 
-    if (req.method === "OPTIONS") {
-      res.sendStatus(204);
-      return;
-    }
-
-    next();
-  });
-
-  app.post("/api/auth/login", asyncHandler(loginHandler));
+  app.post("/api/auth/login", asyncHandler((req, res) => loginHandler(req, res, authDeps)));
   app.post("/api/auth/logout", asyncHandler(logoutHandler));
   app.get("/api/auth/session", asyncHandler(sessionHandler));
   app.get("/api/admin/users", asyncHandler(usersCollectionHandler));
@@ -89,6 +78,14 @@ export function createApp({
   app.get("/api/tracking/exceptions", asyncHandler((req, res) =>
     trackingExceptionsHandler(req, res, { requireSession: localSessionFromRequest, loadWorkbookData })
   ));
+
+  app.use((error, req, res, next) => {
+    if (res.headersSent) {
+      next(error);
+      return;
+    }
+    res.status(error.status || 500).json({ error: error.message || "Internal server error" });
+  });
 
   return app;
 }

@@ -1,4 +1,4 @@
-import { describe, expect, test } from "vitest";
+import { afterEach, describe, expect, test } from "vitest";
 import request from "supertest";
 import { createApp } from "./createApp.js";
 
@@ -94,6 +94,18 @@ const workbookData = {
   },
 };
 
+const ORIGINAL_ENV = {
+  CORS_ORIGIN: process.env.CORS_ORIGIN,
+  NODE_ENV: process.env.NODE_ENV,
+  VERCEL: process.env.VERCEL,
+};
+
+afterEach(() => {
+  restoreEnv("CORS_ORIGIN");
+  restoreEnv("NODE_ENV");
+  restoreEnv("VERCEL");
+});
+
 function buildTestApp(overrides = {}) {
   const mutableRows = overrides.mutableRows || detailData.map((row) => ({ ...row }));
   const shipmentStore = overrides.shipmentStore || {
@@ -171,6 +183,82 @@ function buildTestApp(overrides = {}) {
 }
 
 describe("createApp", () => {
+  test("does not reflect arbitrary credentialed origins when CORS_ORIGIN is unset", async () => {
+    delete process.env.CORS_ORIGIN;
+    process.env.NODE_ENV = "production";
+
+    const response = await request(buildTestApp())
+      .get("/api/health")
+      .set("Origin", "https://evil.example")
+      .set("Host", "dashboard.example")
+      .set("X-Forwarded-Proto", "https")
+      .expect(200);
+
+    expect(response.headers["access-control-allow-origin"]).toBeUndefined();
+    expect(response.headers["access-control-allow-credentials"]).toBe("true");
+  });
+
+  test("allows production same-origin mutating requests through the origin gate", async () => {
+    delete process.env.CORS_ORIGIN;
+    process.env.NODE_ENV = "production";
+
+    const response = await request(buildTestApp())
+      .post("/api/shipments")
+      .set("Authorization", "Bearer test-user")
+      .set("Origin", "https://dashboard.example")
+      .set("Host", "dashboard.example")
+      .set("X-Forwarded-Proto", "https")
+      .send({ bookingNo: "BK-NEW", shipper: "Created Co" })
+      .expect(201);
+
+    expect(response.headers["access-control-allow-origin"]).toBe("https://dashboard.example");
+    expect(response.body.row.recordId).toBe("rec-created");
+  });
+
+  test("blocks disallowed cross-origin cookie session mutations", async () => {
+    delete process.env.CORS_ORIGIN;
+    process.env.NODE_ENV = "production";
+
+    const response = await request(buildTestApp())
+      .post("/api/auth/logout")
+      .set("Origin", "https://evil.example")
+      .set("Host", "dashboard.example")
+      .set("X-Forwarded-Proto", "https")
+      .expect(403);
+
+    expect(response.body).toEqual({ error: "Invalid request origin" });
+  });
+
+  test("allows local dev preflight from the Vite origin and blocks unknown preflight origins", async () => {
+    delete process.env.CORS_ORIGIN;
+    process.env.NODE_ENV = "development";
+
+    const allowed = await request(buildTestApp())
+      .options("/api/shipments")
+      .set("Origin", "http://localhost:5173")
+      .expect(204);
+    expect(allowed.headers["access-control-allow-origin"]).toBe("http://localhost:5173");
+
+    const blocked = await request(buildTestApp())
+      .options("/api/shipments")
+      .set("Origin", "https://evil.example")
+      .expect(403);
+    expect(blocked.body).toEqual({ error: "Invalid request origin" });
+  });
+
+  test("keeps authentication checks after a valid origin passes", async () => {
+    delete process.env.CORS_ORIGIN;
+    process.env.NODE_ENV = "development";
+
+    const response = await request(buildTestApp())
+      .post("/api/shipments")
+      .set("Origin", "http://localhost:5173")
+      .send({ bookingNo: "BK-NEW" })
+      .expect(401);
+
+    expect(response.body).toEqual({ error: "Authentication required" });
+  });
+
   test("returns API health without requiring authentication", async () => {
     const response = await request(buildTestApp()).get("/api/health").expect(200);
 
@@ -197,6 +285,22 @@ describe("createApp", () => {
 
     expect(response.body.metadata.shipments).toBe(2);
     expect(response.body.detailData[0].date).toBe("2024-01-15T00:00:00.000Z");
+  });
+
+  test("returns controlled workbook limit errors from protected API routes", async () => {
+    const limitError = new Error("Workbook row limit exceeded. Maximum data rows: 10000.");
+    limitError.status = 413;
+
+    const response = await request(buildTestApp({
+      loadWorkbookData: async () => {
+        throw limitError;
+      },
+    }))
+      .get("/api/workbook")
+      .set("Authorization", "Bearer admin")
+      .expect(413);
+
+    expect(response.body).toEqual({ error: "Workbook row limit exceeded. Maximum data rows: 10000." });
   });
 
   test("scopes workbook rows to the authenticated sales user", async () => {
@@ -441,3 +545,11 @@ describe("createApp", () => {
     expect(response.body.requestId).toEqual(expect.any(String));
   });
 });
+
+function restoreEnv(key) {
+  if (ORIGINAL_ENV[key] === undefined) {
+    delete process.env[key];
+  } else {
+    process.env[key] = ORIGINAL_ENV[key];
+  }
+}

@@ -33,13 +33,18 @@ Required variables:
 | Variable | Purpose |
 |----------|---------|
 | `SESSION_SECRET` | JWT signing key |
+| `CORS_ORIGIN` | Optional comma-separated CORS allowlist; production defaults to same-origin |
+| `LOGIN_THROTTLE_MAX_FAILURES` | Optional failed login limit, default `5` |
+| `LOGIN_THROTTLE_WINDOW_MS` | Optional failed login window, default `900000` |
+| `LOGIN_LOCKOUT_MS` | Optional login lockout duration, default `900000` |
 | `GOOGLE_CLIENT_EMAIL` | Google service account email |
 | `GOOGLE_PRIVATE_KEY` | Google service account private key |
 | `GOOGLE_SHEET_ID` | Google Sheets spreadsheet ID |
 | `USER_SHEET_NAME` | Users tab name, defaults to `Users` |
 | `DATA_SHEET_NAME` | Shipment tab name, defaults to `Detail Data` |
+| `WORKBOOK_MAX_ROWS` | Optional max shipment data rows, default `10000` |
+| `WORKBOOK_MAX_COLUMNS` | Optional max shipment sheet columns, default `128` |
 | `PORT` | Express port (default: 3001) |
-| `CORS_ORIGIN` | Optional local/backend CORS origin override |
 | `OPENAI_API_KEY` | Required only for AI chat |
 | `OPENAI_MODEL` | Optional AI chat model override |
 | `AI_CHAT_MAX_MESSAGES` | Optional AI chat history cap |
@@ -50,7 +55,7 @@ Frontend env vars must use `VITE_` prefix for Vite to expose them.
 ## Password Management
 
 ```bash
-npm run hash-password -- <plaintext>
+read -s PASSWORD && printf '%s\n' "$PASSWORD" | npm run hash-password -- --stdin; unset PASSWORD
 ```
 
 Paste the bcrypt hash into the Google Sheets "Users" tab.

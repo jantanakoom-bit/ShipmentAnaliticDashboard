@@ -346,6 +346,8 @@ Send an authenticated chat request to the shipment analytics assistant. OpenAI a
 |--------|---------|
 | `400` | Invalid chat payload |
 | `401` | Missing or invalid session |
+| `403` | Invalid request origin or forbidden access |
+| `413` | Workbook row or column limit exceeded |
 | `429` | Per-user rate limit exceeded |
 | `503` | AI chat is not configured |
 | `500` | AI response failed |

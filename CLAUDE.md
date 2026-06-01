@@ -25,7 +25,7 @@ npm run dev:server       # Express API (port 3001) — local dev only
 npm run build            # production build → dist/
 npm test                 # unit + API tests (vitest)
 npm run test:e2e         # E2E tests (Playwright, chromium)
-npm run hash-password -- <pw>  # generate bcrypt hash for user setup
+read -s PASSWORD && printf '%s\n' "$PASSWORD" | npm run hash-password -- --stdin; unset PASSWORD
 vercel                   # deploy to Vercel
 vercel --prod            # deploy to production
 ```
@@ -177,11 +177,17 @@ Set in Vercel Dashboard → Settings → Environment Variables:
 | Variable | Description |
 |----------|-------------|
 | `SESSION_SECRET` | JWT signing key (min 32 chars) |
+| `CORS_ORIGIN` | Optional comma-separated allowlist; production defaults to same-origin |
+| `LOGIN_THROTTLE_MAX_FAILURES` | Optional failed login limit, default `5` |
+| `LOGIN_THROTTLE_WINDOW_MS` | Optional failed login window, default `900000` |
+| `LOGIN_LOCKOUT_MS` | Optional login lockout duration, default `900000` |
 | `GOOGLE_SHEET_ID` | Google Sheets spreadsheet ID |
 | `GOOGLE_CLIENT_EMAIL` | Service account email |
 | `GOOGLE_PRIVATE_KEY` | Service account private key (full PEM) |
 | `USER_SHEET_NAME` | Users tab name (default: `Users`) |
 | `DATA_SHEET_NAME` | Data tab name (default: `Detail Data`) |
+| `WORKBOOK_MAX_ROWS` | Optional max shipment data rows, default `10000` |
+| `WORKBOOK_MAX_COLUMNS` | Optional max shipment sheet columns, default `128` |
 | `VITE_API_BASE_URL` | Set to `/api` (same-origin) |
 | `OPENAI_API_KEY` | Enables AI chat |
 | `OPENAI_MODEL` | Optional AI model override |
