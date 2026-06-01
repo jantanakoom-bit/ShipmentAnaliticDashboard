@@ -4,6 +4,7 @@ const mocks = vi.hoisted(() => ({
   values: {
     get: vi.fn(),
     update: vi.fn(),
+    batchUpdate: vi.fn(),
     append: vi.fn(),
   },
 }));
@@ -14,6 +15,7 @@ vi.mock("./googleSheets.js", () => ({
 }));
 
 const {
+  backfillMissingRecordIds,
   createShipment,
   ensureDetailDataSchema,
   updateShipment,
@@ -23,6 +25,7 @@ describe("shipmentStore", () => {
   beforeEach(() => {
     mocks.values.get.mockReset();
     mocks.values.update.mockReset().mockResolvedValue({});
+    mocks.values.batchUpdate.mockReset().mockResolvedValue({});
     mocks.values.append.mockReset().mockResolvedValue({});
   });
 
@@ -93,5 +96,159 @@ describe("shipmentStore", () => {
     const updateCall = mocks.values.update.mock.calls.at(-1)[0];
     expect(updateCall.requestBody.values[0]).toEqual(expect.arrayContaining(["keep-me"]));
     expect(updateCall.requestBody.values[0][4]).toBe("user-1");
+  });
+
+  test("dry-runs missing record id backfill without writing rows", async () => {
+    mocks.values.get.mockResolvedValueOnce({
+      data: {
+        values: [
+          ["Date", "Booking No", "record_id"],
+          ["2026-06-01", "BK-100", ""],
+          ["2026-06-02", "BK-101", "rec-existing"],
+          ["2026-06-03", "BK-102", ""],
+        ],
+      },
+    });
+
+    const result = await backfillMissingRecordIds();
+
+    expect(result).toMatchObject({
+      dryRun: true,
+      totalRows: 3,
+      missingRecordIds: 2,
+      updatedRows: 0,
+    });
+    expect(mocks.values.update).not.toHaveBeenCalled();
+  });
+
+  test("dry-runs missing record id column without mutating the sheet", async () => {
+    mocks.values.get.mockResolvedValueOnce({
+      data: {
+        values: [
+          ["Date", "Booking No"],
+          ["2026-06-01", "BK-100"],
+          ["2026-06-02", "BK-101"],
+        ],
+      },
+    });
+
+    const result = await backfillMissingRecordIds();
+
+    expect(result).toMatchObject({
+      dryRun: true,
+      totalRows: 2,
+      missingRecordIds: 2,
+      updatedRows: 0,
+      recordIdColumnMissing: true,
+    });
+    expect(mocks.values.update).not.toHaveBeenCalled();
+  });
+
+  test("applies record id header before backfilling blank ids", async () => {
+    mocks.values.get
+      .mockResolvedValueOnce({
+        data: { values: [["Date", "Booking No"]] },
+      })
+      .mockResolvedValueOnce({
+        data: {
+          values: [
+            ["Date", "Booking No", "record_id"],
+            ["2026-06-01", "BK-100", ""],
+          ],
+        },
+      });
+
+    const result = await backfillMissingRecordIds({ dryRun: false });
+
+    expect(result).toMatchObject({
+      dryRun: false,
+      totalRows: 1,
+      missingRecordIds: 1,
+      updatedRows: 1,
+    });
+    expect(mocks.values.update).toHaveBeenNthCalledWith(1, expect.objectContaining({
+      range: "Detail Data!A1:C1",
+      requestBody: { values: [["Date", "Booking No", "record_id"]] },
+    }));
+    expect(mocks.values.batchUpdate).toHaveBeenCalledWith(expect.objectContaining({
+      requestBody: {
+        valueInputOption: "RAW",
+        data: [
+          {
+            range: "Detail Data!C2:C2",
+            values: [[expect.any(String)]],
+          },
+        ],
+      },
+    }));
+  });
+
+  test("applies missing record id backfill only to blank record_id cells", async () => {
+    mocks.values.get
+      .mockResolvedValueOnce({
+        data: { values: [["Date", "Booking No", "record_id"]] },
+      })
+      .mockResolvedValueOnce({
+        data: {
+          values: [
+            ["Date", "Booking No", "record_id"],
+            ["2026-06-01", "BK-100", ""],
+            ["2026-06-02", "BK-101", "rec-existing"],
+            ["2026-06-03", "BK-102", ""],
+          ],
+        },
+      });
+
+    const result = await backfillMissingRecordIds({ dryRun: false });
+
+    expect(result).toMatchObject({
+      dryRun: false,
+      totalRows: 3,
+      missingRecordIds: 2,
+      updatedRows: 2,
+    });
+    expect(mocks.values.update).not.toHaveBeenCalled();
+    expect(mocks.values.batchUpdate).toHaveBeenCalledTimes(1);
+    expect(mocks.values.batchUpdate).toHaveBeenCalledWith(expect.objectContaining({
+      requestBody: {
+        valueInputOption: "RAW",
+        data: [
+          {
+            range: "Detail Data!C2:C2",
+            values: [[expect.any(String)]],
+          },
+          {
+            range: "Detail Data!C4:C4",
+            values: [[expect.any(String)]],
+          },
+        ],
+      },
+    }));
+  });
+
+  test("does not write when all shipment rows already have record ids", async () => {
+    mocks.values.get
+      .mockResolvedValueOnce({
+        data: { values: [["Date", "Booking No", "record_id"]] },
+      })
+      .mockResolvedValueOnce({
+        data: {
+          values: [
+            ["Date", "Booking No", "record_id"],
+            ["2026-06-01", "BK-100", "rec-100"],
+            ["2026-06-02", "BK-101", "rec-101"],
+          ],
+        },
+      });
+
+    const result = await backfillMissingRecordIds({ dryRun: false });
+
+    expect(result).toMatchObject({
+      dryRun: false,
+      totalRows: 2,
+      missingRecordIds: 0,
+      updatedRows: 0,
+    });
+    expect(mocks.values.update).not.toHaveBeenCalled();
   });
 });

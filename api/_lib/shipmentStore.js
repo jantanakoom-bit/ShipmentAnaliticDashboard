@@ -1,6 +1,7 @@
 import { randomUUID } from "node:crypto";
 import { getSheetsClient, requiredEnv } from "./googleSheets.js";
 import { canViewAllSalesData } from "./rbac.js";
+import { getWriteCacheBuster, invalidateShipmentWriteCache } from "./shipmentWriteCache.js";
 import { normalizeWorkbookRow } from "./workbook.js";
 
 const DETAIL_SHEET = process.env.DATA_SHEET_NAME || "Detail Data";
@@ -62,15 +63,7 @@ const RBAC_FIELDS = new Set([
   "deletedBy",
 ]);
 
-let writeCacheBuster = 0;
-
-export function getWriteCacheBuster() {
-  return writeCacheBuster;
-}
-
-export function invalidateShipmentWriteCache() {
-  writeCacheBuster += 1;
-}
+export { getWriteCacheBuster, invalidateShipmentWriteCache };
 
 export async function ensureDetailDataSchema(requiredHeaders = CRUD_HEADERS) {
   const sheets = getSheetsClient();
@@ -159,16 +152,61 @@ export async function softDeleteShipment(recordId, { session }) {
   return normalizeWorkbookRow(nextRaw);
 }
 
+export async function backfillMissingRecordIds({ dryRun = true } = {}) {
+  const sheet = await readDetailSheet(["record_id"], { ensureSchema: !dryRun });
+  const recordIdColumnIndex = sheet.headers.indexOf("record_id");
+  if (recordIdColumnIndex === -1) {
+    return {
+      dryRun,
+      totalRows: sheet.rows.length,
+      missingRecordIds: sheet.rows.length,
+      updatedRows: 0,
+      recordIdColumnMissing: true,
+    };
+  }
+
+  const missingRows = sheet.rows.filter(({ raw }) => !`${raw.record_id ?? ""}`.trim());
+  if (!dryRun) {
+    const sheets = getSheetsClient();
+    const spreadsheetId = requiredEnv("GOOGLE_SHEET_ID");
+    const column = columnName(recordIdColumnIndex + 1);
+    if (missingRows.length) {
+      await sheets.spreadsheets.values.batchUpdate({
+        spreadsheetId,
+        requestBody: {
+          valueInputOption: "RAW",
+          data: missingRows.map((row) => ({
+            range: `${DETAIL_SHEET}!${column}${row.rowNumber}:${column}${row.rowNumber}`,
+            values: [[randomUUID()]],
+          })),
+        },
+      });
+      invalidateShipmentWriteCache();
+    }
+  }
+
+  return {
+    dryRun,
+    totalRows: sheet.rows.length,
+    missingRecordIds: missingRows.length,
+    updatedRows: dryRun ? 0 : missingRows.length,
+  };
+}
+
 export function sanitizeShipmentPatch(body = {}) {
   return removeRestrictedFields(body);
 }
 
-async function readDetailSheet() {
-  const schema = await ensureDetailDataSchema();
+async function readDetailSheet(requiredHeaders = CRUD_HEADERS, { ensureSchema = true } = {}) {
+  const schema = ensureSchema
+    ? await ensureDetailDataSchema(requiredHeaders)
+    : { headers: [] };
   const sheets = getSheetsClient();
   const response = await sheets.spreadsheets.values.get({
     spreadsheetId: requiredEnv("GOOGLE_SHEET_ID"),
-    range: `${DETAIL_SHEET}!A:${columnName(schema.headers.length)}`,
+    range: schema.headers.length
+      ? `${DETAIL_SHEET}!A:${columnName(schema.headers.length)}`
+      : `${DETAIL_SHEET}!A:ZZ`,
   });
   const rows = response.data.values || [];
   const headers = (rows[0] || schema.headers).map((header) => `${header ?? ""}`.trim());
