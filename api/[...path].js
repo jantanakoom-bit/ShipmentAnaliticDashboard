@@ -1,5 +1,1 @@
-import { createApp } from "./_lib/createApp.js";
-
-const app = createApp();
-
-export default app;
+export { default } from "./_lib/vercelApp.js";
