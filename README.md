@@ -130,7 +130,7 @@ Blank exception status defaults to `open`; supported statuses are `open`, `in_pr
 - Standardize `Status` values in the source workbook
 - Add event-level movement history once source data is available
 - Add notifications for exception follow-up
-- Extend AI assistant with operational tracking tools
+- Add approved write-back flows for AI-suggested tracking actions if audit and permission rules are defined
 
 ## RBAC Sales CRUD
 
