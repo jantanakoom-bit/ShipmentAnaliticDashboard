@@ -428,7 +428,6 @@ export default function ShipmentsPage({ filteredRows, currentUser, onDataRefresh
                     <button
                       className="btn-sm"
                       type="button"
-                      disabled={!row.recordId}
                       onClick={() => openDetail(row)}
                       aria-label={`View ${row.bookingNo || row.recordId || "shipment"}`}
                     >
@@ -588,7 +587,7 @@ function ShipmentEditor({
           </>
         ) : null}
         <div className="shipment-form-actions">
-          <button className="btn btn-primary" type="submit" disabled={saving}>
+          <button className="btn btn-primary" type="submit" disabled={saving || (!isCreate && !row?.recordId)}>
             {isCreate ? "Create Shipment" : "Save Changes"}
           </button>
           {!isCreate ? (

@@ -179,6 +179,22 @@ describe("ShipmentsPage", () => {
     expect(screen.getByLabelText("Sales Person")).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Add Shipment" })).toBeInTheDocument();
   });
+
+  test("opens read-only detail view for legacy rows without record ids", async () => {
+    const user = userEvent.setup();
+    renderWithRouter(
+      <ShipmentsPage
+        filteredRows={[{ ...shipmentRows[0], recordId: "" }]}
+        currentUser={normalUser}
+        onDataRefresh={vi.fn()}
+      />,
+    );
+
+    await user.click(screen.getByRole("button", { name: "View BK-001" }));
+    expect(screen.getByText("Shipment Detail: BK-001")).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Save Changes" })).toBeDisabled();
+    expect(screen.getByRole("button", { name: "Delete Shipment" })).toBeDisabled();
+  });
 });
 
 describe("TrackingPage", () => {
