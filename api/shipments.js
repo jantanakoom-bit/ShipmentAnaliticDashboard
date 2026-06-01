@@ -1,9 +1,0 @@
-import { shipmentsCollectionHandler } from "./_lib/shipmentHandlers.js";
-
-export default async function handler(req, res) {
-  try {
-    return await shipmentsCollectionHandler(req, res);
-  } catch (error) {
-    return res.status(error.status || 500).json({ error: error.message });
-  }
-}
