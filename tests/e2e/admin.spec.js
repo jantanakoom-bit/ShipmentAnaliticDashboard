@@ -29,6 +29,7 @@ test("admin can create users and patch role, password, and status", async ({ pag
 test("non-admin sees access denied", async ({ page }) => {
   await mockDashboardApi(page, { user: normalUser });
   await login(page);
-  await page.locator(".nav-sidebar").getByRole("link", { name: /Admin/ }).click();
+  await expect(page.locator(".nav-sidebar").getByRole("link", { name: /Admin/ })).toHaveCount(0);
+  await page.goto("/admin");
   await expect(page.getByText("Access Denied")).toBeVisible();
 });
