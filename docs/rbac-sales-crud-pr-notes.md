@@ -13,6 +13,7 @@ The dashboard authenticated users through the `Users` Google Sheet, but shipment
 - Add safe schema validation that appends missing RBAC/CRUD headers without deleting or renaming existing columns.
 - Add permission-aware shipment UI for inline create, modal detail/edit, delete confirmation, and moderator/admin salesperson filtering.
 - Keep legacy rows with missing ownership visible to moderator/admin review paths while preserving normal user ownership scoping.
+- Add workbook cache invalidation after shipment writes so successful save/delete operations are visible on the next frontend refresh.
 
 ## Role Behavior
 
@@ -43,6 +44,19 @@ record_id,owner_user_id,owner_username,created_by,updated_by,created_at,updated_
 
 Backfill existing rows by mapping `Sale Name` to `Users.id` and `Users.username`. Rows with no owner remain visible only to moderator/admin until assigned. Existing analytics/tracking columns remain backward compatible.
 
+Use the backfill helper for durable row identities:
+
+```bash
+npm run backfill-record-ids
+npm run backfill-record-ids -- --apply
+```
+
+The dry-run reports missing IDs without writing. The apply mode writes UUIDs to blank `record_id` cells with a batched Google Sheets update.
+
+## Data Refresh Behavior
+
+Shipment create, update, soft delete, and `record_id` backfill all invalidate the shared workbook cache. The next `/api/workbook` load fetches Google Sheets again instead of returning the previous cached rows, which prevents the UI from showing stale shipment status after `Save Changes` or `Delete Shipment`.
+
 ## Test Evidence
 
 Baseline before implementation:
@@ -65,11 +79,20 @@ npm run test:e2e -- tests/e2e/shipments.spec.js tests/e2e/admin.spec.js
 Latest focused UI checks run locally on 2026-06-01:
 
 ```bash
+npm run test:api
+# 6 files passed, 36 tests passed
+
 npm run test:unit -- src/pages/pages.test.jsx
 # 6 files passed, 32 tests passed
 
 npm run test:e2e -- tests/e2e/shipments.spec.js
 # 3 tests passed
+
+npm run build
+# built successfully
+
+npx eslint .
+# passed
 ```
 
 Final PR gate should run:

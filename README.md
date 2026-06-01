@@ -127,10 +127,21 @@ Shipment CRUD uses `Detail Data` rows as sales records. Normal `user` accounts c
 
 On the Shipments page, creating a shipment uses the inline form. Viewing an existing shipment opens a detail dialog for review and edits. Delete actions require a confirmation dialog and use soft delete only, so deleted rows remain in Google Sheets with audit fields instead of being removed.
 
+After create, update, delete, or record-id backfill, the backend invalidates the in-process workbook cache before the frontend refreshes data. This avoids the previous behavior where `/api/workbook` could return stale Google Sheets rows for up to 45 seconds after a successful shipment write.
+
 Add these optional columns to the right side of `Detail Data` before enabling website write-back on an existing production sheet:
 
 ```text
 record_id,owner_user_id,owner_username,created_by,updated_by,created_at,updated_at,is_deleted,deleted_at,deleted_by
 ```
+
+Existing sheets can populate missing `record_id` values with the backfill script:
+
+```bash
+npm run backfill-record-ids
+npm run backfill-record-ids -- --apply
+```
+
+The default mode is a dry-run. Use `--apply` only when the Google service account has write access and the target sheet has been reviewed.
 
 See `docs/data-contract.md` for the permission matrix, schema review, and backfill strategy. See `docs/rbac-sales-crud-pr-notes.md` for branch-specific review notes and verification evidence.

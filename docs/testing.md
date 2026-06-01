@@ -57,13 +57,19 @@ Shipment CRUD coverage should prove both RBAC behavior and the user workflow:
 - Delete first opens a confirmation dialog; cancel keeps the detail dialog open and does not call the delete API.
 - Confirm delete calls the soft-delete endpoint and removes the row from the active list after refresh.
 - Delete failures stay visible in the confirmation flow so the user can retry or cancel.
+- Save and delete flows refresh from the latest workbook data after backend cache invalidation, not from a stale in-process workbook cache.
 
 Focused checks for this area:
 
 ```bash
+npm run test:api
 npm run test:unit -- src/pages/pages.test.jsx
 npm run test:e2e -- tests/e2e/shipments.spec.js
+npm run build
+npx eslint .
 ```
+
+Backend cache regression coverage lives in `api/_lib/workbookCache.test.js`. It verifies that a shipment write invalidates the cached workbook payload and forces the next load to read fresh Google Sheets data.
 
 ## E2E Notes
 

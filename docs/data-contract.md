@@ -118,8 +118,18 @@ Backfill strategy:
 3. For rows without a clear owner, leave ownership blank so only moderator/admin can review and assign them.
 4. Populate `record_id` with unique ids before enabling update/delete for old rows. Website-created rows get ids automatically.
 
+The repository includes a focused `record_id` backfill helper:
+
+```bash
+npm run backfill-record-ids
+npm run backfill-record-ids -- --apply
+```
+
+The first command is read-only and reports how many rows are missing `record_id`. The `--apply` mode appends the `record_id` header when needed and writes UUID values only into blank `record_id` cells. It uses Google Sheets `values.batchUpdate` to avoid one request per row.
+
 ## Compatibility Rules
 
 - Missing optional tracking columns do not break dashboard, analytics, shipments, or AI chat.
 - Missing `ETA` or milestone data appears as a tracking exception instead of a load failure.
 - Authentication data and Google service credentials must not be exposed to the frontend.
+- Shipment create/update/delete and record-id backfill invalidate the backend workbook cache so frontend refreshes read the latest Google Sheets data immediately.
