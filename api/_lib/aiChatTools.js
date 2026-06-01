@@ -1,4 +1,5 @@
 import { METRIC_EXPLANATIONS } from "./aiChatPrompts.js";
+import { buildTrackingModel, filterTrackingRows, serializeTrackingRow } from "./tracking.js";
 import { buildAnalytics, filterRows, serializeRow } from "./workbook.js";
 
 export const DEFAULT_AI_CHAT_MAX_ROWS = 50;
@@ -75,6 +76,62 @@ export const AI_CHAT_TOOL_DEFINITIONS = [
       additionalProperties: false,
     },
   },
+  {
+    type: "function",
+    name: "get_tracking_summary",
+    description: "Get read-only tracking KPIs, exception summary, workflow summary, and milestone summary for selected filters.",
+    parameters: {
+      type: "object",
+      properties: {
+        filters: {
+          type: "object",
+          description: "Optional tracking filters such as exceptionType, actionStatus, priority, actionOwner, dueState, milestone, trade, carrier, sales, or status.",
+          additionalProperties: true,
+        },
+      },
+      additionalProperties: false,
+    },
+  },
+  {
+    type: "function",
+    name: "get_tracking_exceptions",
+    description: "Return a capped, read-only list of tracking exception rows matching selected filters.",
+    parameters: {
+      type: "object",
+      properties: {
+        filters: {
+          type: "object",
+          description: "Optional tracking filters such as exceptionType, actionStatus, priority, actionOwner, dueState, milestone, trade, carrier, sales, or status.",
+          additionalProperties: true,
+        },
+        limit: {
+          type: "number",
+          description: "Maximum exception rows to return. The backend applies its own cap.",
+        },
+      },
+      additionalProperties: false,
+    },
+  },
+  {
+    type: "function",
+    name: "suggest_exception_actions",
+    description: "Return deterministic suggestion-only next actions for capped tracking exception rows. This tool never writes to Google Sheets.",
+    parameters: {
+      type: "object",
+      properties: {
+        filters: {
+          type: "object",
+          description: "Optional tracking filters such as exceptionType, actionStatus, priority, actionOwner, dueState, milestone, trade, carrier, sales, or status.",
+          additionalProperties: true,
+        },
+        limit: {
+          type: "number",
+          description: "Maximum exception rows to return. The backend applies its own cap.",
+        },
+      },
+      additionalProperties: false,
+    },
+  },
 ];
 
 const ALLOWED_ROW_FIELDS = [
@@ -95,6 +152,29 @@ const ALLOWED_ROW_FIELDS = [
   "trade",
   "carrier",
   "route",
+];
+
+const ALLOWED_TRACKING_ROW_FIELDS = [
+  "recordId",
+  "shipmentId",
+  "bookingNo",
+  "jobNo",
+  "carrier",
+  "trade",
+  "saleName",
+  "currentMilestone",
+  "eta",
+  "ata",
+  "lastEventTime",
+  "delayDays",
+  "delayReason",
+  "exceptionTypes",
+  "exceptionStatus",
+  "exceptionPriority",
+  "exceptionOwnerUsername",
+  "exceptionNextAction",
+  "exceptionDueAt",
+  "isExceptionActionOverdue",
 ];
 
 const ARRAY_FILTERS = {
@@ -155,6 +235,52 @@ export function createChatToolRunner({ loadWorkbookData, baseFilters = {}, maxRo
       return explainMetric(args.metric);
     }
 
+    if (toolName === "get_tracking_summary") {
+      const rows = applyTrackingFilters(data.detailData, filters);
+      const trackingModel = buildTrackingModel(rows);
+      return {
+        filters: normalizeFilterSnapshot(filters),
+        rowsMatched: trackingModel.rows.length,
+        summary: trackingModel.summary,
+        exceptionSummary: trackingModel.exceptionSummary,
+        workflowSummary: buildWorkflowSummary(trackingModel.exceptions),
+        milestoneSummary: trackingModel.milestoneSummary,
+        generatedAt: trackingModel.generatedAt,
+        suggestionOnly: true,
+      };
+    }
+
+    if (toolName === "get_tracking_exceptions") {
+      const rows = applyTrackingFilters(data.detailData, filters, { exceptionsOnly: true });
+      const safeLimit = getSafeLimit(args.limit, maxRows, 10);
+
+      return {
+        filters: normalizeFilterSnapshot(filters),
+        rowsMatched: rows.length,
+        rowLimitApplied: rows.length > safeLimit,
+        limit: safeLimit,
+        rows: rows.slice(0, safeLimit).map(projectTrackingRow),
+        suggestionOnly: true,
+      };
+    }
+
+    if (toolName === "suggest_exception_actions") {
+      const rows = applyTrackingFilters(data.detailData, filters, { exceptionsOnly: true });
+      const safeLimit = getSafeLimit(args.limit, maxRows, 10);
+
+      return {
+        filters: normalizeFilterSnapshot(filters),
+        rowsMatched: rows.length,
+        rowLimitApplied: rows.length > safeLimit,
+        limit: safeLimit,
+        rows: rows.slice(0, safeLimit).map((row) => ({
+          ...projectTrackingRow(row),
+          suggestedAction: buildSuggestedAction(row),
+        })),
+        suggestionOnly: true,
+      };
+    }
+
     throw new Error(`Unsupported AI chat tool: ${toolName}`);
   };
 }
@@ -180,6 +306,64 @@ export function projectShipmentRow(row) {
   return Object.fromEntries(ALLOWED_ROW_FIELDS.map((field) => [field, serialized[field] ?? ""]));
 }
 
+export function applyTrackingFilters(rows, filters = {}, { exceptionsOnly = false } = {}) {
+  const dashboardFiltered = applyChatFilters(rows, filters);
+  const trackingModel = buildTrackingModel(dashboardFiltered);
+  const sourceRows = exceptionsOnly ? trackingModel.exceptions : trackingModel.rows;
+  return filterTrackingRows(sourceRows, normalizeTrackingFilterQuery(filters));
+}
+
+export function projectTrackingRow(row) {
+  const serialized = serializeTrackingRow(row);
+  return Object.fromEntries(
+    ALLOWED_TRACKING_ROW_FIELDS.map((field) => {
+      const value = serialized[field];
+      if (field === "exceptionTypes") {
+        return [field, Array.isArray(value) ? value : []];
+      }
+      if (field === "isExceptionActionOverdue") {
+        return [field, Boolean(value)];
+      }
+      return [field, value ?? ""];
+    }),
+  );
+}
+
+export function buildSuggestedAction(row = {}) {
+  const actions = [];
+  const types = Array.isArray(row.exceptionTypes) ? row.exceptionTypes : [];
+
+  if (row.isExceptionActionOverdue) {
+    actions.push("Escalate overdue action and refresh the due date after owner confirmation.");
+  }
+  if (!row.exceptionOwnerUsername && !row.exceptionOwnerUserId) {
+    actions.push("Assign an owner before the next follow-up.");
+  }
+  if (types.includes("delayed")) {
+    const reason = row.delayReason ? ` Reason on file: ${row.delayReason}.` : "";
+    actions.push(`Ask the carrier for revised ETA and recovery plan.${reason}`);
+  }
+  if (types.includes("stale")) {
+    actions.push("Request a tracking update because the last event is stale.");
+  }
+  if (types.includes("missing_data")) {
+    actions.push("Complete missing ETA or milestone fields before customer reporting.");
+  }
+  if (types.includes("invalid_sequence")) {
+    actions.push("Verify milestone dates and correct the sequence source data.");
+  }
+  if (["high", "urgent"].includes(row.exceptionPriority)) {
+    actions.push("Keep this in the same-day follow-up queue due to priority.");
+  }
+  if (!actions.length && row.exceptionStatus === "resolved") {
+    return "No follow-up suggested; this exception is already resolved.";
+  }
+  if (!actions.length) {
+    return "Review the row and confirm the next operational follow-up.";
+  }
+  return actions.join(" ");
+}
+
 export function normalizeFilterSnapshot(filters = {}) {
   return Object.fromEntries(
     Object.entries(filters)
@@ -196,6 +380,54 @@ function mergeFilters(baseFilters = {}, overrideFilters = {}) {
     ...(baseFilters || {}),
     ...(overrideFilters || {}),
   };
+}
+
+function getSafeLimit(requested, maxRows, fallback) {
+  const requestedLimit = Number(requested);
+  const limit = Number.isFinite(requestedLimit) ? Math.trunc(requestedLimit) : fallback;
+  return Math.max(1, Math.min(maxRows, limit));
+}
+
+function normalizeTrackingFilterQuery(filters = {}) {
+  const query = { ...filters };
+  const scalarKeys = ["milestone", "trade", "carrier", "sales", "saleName", "status", "actionStatus", "priority", "actionOwner", "dueState", "exceptionType"];
+  for (const key of scalarKeys) {
+    if (Array.isArray(query[key])) {
+      query[key] = query[key][0];
+    }
+  }
+  return query;
+}
+
+function buildWorkflowSummary(rows = []) {
+  const openRows = rows.filter((row) => row.isExceptionActionOpen);
+  return {
+    status: countByName(rows, "exceptionStatus"),
+    priority: countByName(openRows, "exceptionPriority"),
+    ownerWorkload: countByOwner(openRows),
+    overdueActions: openRows.filter((row) => row.isExceptionActionOverdue).length,
+    unassignedActions: openRows.filter((row) => !row.isExceptionActionAssigned).length,
+  };
+}
+
+function countByName(rows, key) {
+  return [...rows.reduce((counts, row) => {
+    const value = row[key] || "Unspecified";
+    counts.set(value, (counts.get(value) || 0) + 1);
+    return counts;
+  }, new Map()).entries()]
+    .map(([name, count]) => ({ name, count }))
+    .sort((a, b) => b.count - a.count || a.name.localeCompare(b.name));
+}
+
+function countByOwner(rows) {
+  return [...rows.reduce((counts, row) => {
+    const owner = row.exceptionOwnerUsername || row.exceptionOwnerUserId || "Unassigned";
+    counts.set(owner, (counts.get(owner) || 0) + 1);
+    return counts;
+  }, new Map()).entries()]
+    .map(([name, count]) => ({ name, count }))
+    .sort((a, b) => b.count - a.count || a.name.localeCompare(b.name));
 }
 
 function normalizeSimpleQuery(filters) {

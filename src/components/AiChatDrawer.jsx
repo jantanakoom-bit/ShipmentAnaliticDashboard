@@ -1,4 +1,4 @@
-import { lazy, Suspense, useMemo, useState } from "react";
+import { lazy, Suspense, useEffect, useMemo, useRef, useState } from "react";
 import { sendAiChatMessage } from "../lib/aiChat";
 
 const MAX_VISIBLE_MESSAGES = 12;
@@ -17,10 +17,26 @@ export default function AiChatDrawer({ filters, pageContext }) {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
   const [dataUsed, setDataUsed] = useState(null);
+  const messagesRef = useRef(null);
 
   const remainingChars = MAX_INPUT_LENGTH - input.length;
   const canSubmit = input.trim().length > 0 && input.length <= MAX_INPUT_LENGTH && !loading;
   const visibleMessages = useMemo(() => messages.slice(-MAX_VISIBLE_MESSAGES), [messages]);
+  const lastVisibleMessage = visibleMessages.at(-1)?.content || "";
+
+  useEffect(() => {
+    if (!open || !messagesRef.current) {
+      return;
+    }
+
+    const messageLog = messagesRef.current;
+    const scrollOptions = { top: messageLog.scrollHeight, behavior: "smooth" };
+    if (typeof messageLog.scrollTo === "function") {
+      messageLog.scrollTo(scrollOptions);
+      return;
+    }
+    messageLog.scrollTop = messageLog.scrollHeight;
+  }, [lastVisibleMessage, loading, open]);
 
   async function handleSubmit(event) {
     event.preventDefault();
@@ -81,7 +97,7 @@ export default function AiChatDrawer({ filters, pageContext }) {
             </button>
           </div>
 
-          <div className="ai-chat-messages" role="log" aria-live="polite">
+          <div ref={messagesRef} className="ai-chat-messages" role="log" aria-live="polite">
             {visibleMessages.map((message, index) => (
               <div key={`${message.role}-${index}-${message.content.slice(0, 20)}`} className={`ai-chat-message ${message.role}`}>
                 {message.role === "assistant" ? (
@@ -105,21 +121,23 @@ export default function AiChatDrawer({ filters, pageContext }) {
           {error ? <div className="ai-chat-error">{error}</div> : null}
 
           <form className="ai-chat-form" onSubmit={handleSubmit}>
-            <textarea
-              value={input}
-              onChange={(event) => setInput(event.target.value)}
-              onKeyDown={handleKeyDown}
-              placeholder="Ask about selected shipment data..."
-              maxLength={MAX_INPUT_LENGTH + 1}
-              rows={3}
-            />
-            <div className="ai-chat-form-row">
-              <span className={remainingChars < 0 ? "ai-chat-count over" : "ai-chat-count"}>
-                {remainingChars} chars
-              </span>
-              <button type="submit" disabled={!canSubmit}>
-                Send
-              </button>
+            <div className="ai-chat-composer">
+              <textarea
+                value={input}
+                onChange={(event) => setInput(event.target.value)}
+                onKeyDown={handleKeyDown}
+                placeholder="Ask about selected shipment data..."
+                maxLength={MAX_INPUT_LENGTH + 1}
+                rows={3}
+              />
+              <div className="ai-chat-composer-actions">
+                <span className={remainingChars < 0 ? "ai-chat-count over" : "ai-chat-count"}>
+                  {remainingChars} chars
+                </span>
+                <button type="submit" disabled={!canSubmit}>
+                  Send
+                </button>
+              </div>
             </div>
           </form>
         </aside>

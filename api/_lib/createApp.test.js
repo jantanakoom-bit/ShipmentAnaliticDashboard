@@ -617,6 +617,63 @@ describe("createApp", () => {
     });
     expect(response.body.requestId).toEqual(expect.any(String));
   });
+
+  test("answers AI chat tracking questions with scoped exception rows only", async () => {
+    const calls = [];
+    const openAIClient = {
+      responses: {
+        create: async (payload) => {
+          calls.push(payload);
+          if (calls.length === 1) {
+            return {
+              id: "resp_tracking_1",
+              output: [
+                {
+                  type: "function_call",
+                  name: "get_tracking_exceptions",
+                  call_id: "call_tracking_1",
+                  arguments: JSON.stringify({ filters: { exceptionType: "delayed" }, limit: 10 }),
+                },
+              ],
+            };
+          }
+
+          const toolResult = JSON.parse(payload.input[0].output);
+          expect(toolResult.rowsMatched).toBe(1);
+          expect(toolResult.rows).toHaveLength(1);
+          expect(toolResult.rows[0]).toMatchObject({
+            recordId: "rec-001",
+            shipmentId: "SHP-001",
+            exceptionTypes: expect.arrayContaining(["delayed"]),
+          });
+          expect(toolResult.rows[0].recordId).not.toBe("rec-002");
+
+          return {
+            id: "resp_tracking_2",
+            output_text: "One scoped delayed exception is open. Suggestion only: follow up with the carrier.",
+            output: [],
+          };
+        },
+      },
+    };
+
+    const response = await request(buildTestApp({ openAIClient }))
+      .post("/api/chat")
+      .set("Authorization", "Bearer test-user")
+      .send({
+        messages: [{ role: "user", content: "Show delayed tracking exceptions." }],
+        pageContext: { route: "/tracking", recordCount: 1 },
+      })
+      .expect(200);
+
+    expect(response.body.answer).toContain("Suggestion only");
+    expect(response.body.dataUsed).toMatchObject({
+      tools: ["get_tracking_exceptions"],
+      rowsMatched: 1,
+      rowLimitApplied: false,
+    });
+    expect(calls[0].input[0].content).toContain("\"route\":\"/tracking\"");
+  });
 });
 
 function restoreEnv(key) {

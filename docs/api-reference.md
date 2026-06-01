@@ -384,6 +384,31 @@ Send an authenticated chat request to the shipment analytics assistant. OpenAI a
 }
 ```
 
+For tracking questions, `dataUsed.tools` can include read-only tracking tools:
+
+```json
+{
+  "answer": "Suggestion only: follow up with the carrier for a revised ETA.",
+  "dataUsed": {
+    "filters": {
+      "exceptionType": "delayed",
+      "actionStatus": "open",
+      "priority": "high",
+      "actionOwner": "tester",
+      "dueState": "overdue"
+    },
+    "tools": ["get_tracking_exceptions", "suggest_exception_actions"],
+    "rowsMatched": 8,
+    "rowLimitApplied": false
+  },
+  "requestId": "3f1d1f8c-8b27-4e27-b2d3-2fdd6c52b29d"
+}
+```
+
+Supported AI tool names are `get_metadata`, `get_shipment_summary`, `search_shipments`, `explain_metric`, `get_tracking_summary`, `get_tracking_exceptions`, and `suggest_exception_actions`.
+
+Tracking AI tools are suggest-only. They do not call `PATCH /api/tracking/exceptions/:id`, assign owners, notify carriers, or write back to Google Sheets.
+
 **Errors:**
 
 | Status | Meaning |

@@ -24,7 +24,9 @@ api/chat.js or local Express route
               +-- loadWorkbookData()
               +-- filterRows()
               +-- buildAnalytics()
+              +-- buildTrackingModel()
               +-- projectShipmentRow()
+              +-- projectTrackingRow()
 ```
 
 ## Backend Files
@@ -108,6 +110,9 @@ api/chat.js or local Express route
 | `get_shipment_summary` | Returns aggregate shipment analytics | Uses filtered workbook rows; no raw full workbook dump |
 | `search_shipments` | Returns capped shipment rows | Max `AI_CHAT_MAX_ROWS`; projects allowed fields only |
 | `explain_metric` | Explains dashboard metric calculations | Static glossary only |
+| `get_tracking_summary` | Returns tracking KPI, exception, workflow, and milestone summaries | Read-only; scoped rows only |
+| `get_tracking_exceptions` | Returns capped tracking exception rows | Max `AI_CHAT_MAX_ROWS`; projects approved tracking fields only |
+| `suggest_exception_actions` | Returns deterministic next-action suggestions for exceptions | Suggestion-only; no Google Sheets write-back |
 
 Allowed row fields for shipment search:
 
@@ -116,12 +121,37 @@ date, bookingNo, jobNo, shipper, pol, pod, country, port, destination,
 qty, unit, teu, status, saleName, trade, carrier, route
 ```
 
+Allowed row fields for tracking exception tools:
+
+```text
+recordId, shipmentId, bookingNo, jobNo, carrier, trade, saleName,
+currentMilestone, eta, ata, lastEventTime, delayDays, delayReason,
+exceptionTypes, exceptionStatus, exceptionPriority, exceptionOwnerUsername,
+exceptionNextAction, exceptionDueAt, isExceptionActionOverdue
+```
+
+Tracking tools accept filters such as:
+
+```json
+{
+  "filters": {
+    "exceptionType": "delayed",
+    "actionStatus": "open",
+    "priority": "high",
+    "actionOwner": "tester",
+    "dueState": "overdue"
+  },
+  "limit": 10
+}
+```
+
 ## Security Rules
 
 - `OPENAI_API_KEY` is server-only.
 - `/api/chat` requires an authenticated session.
 - Tool handlers decide what data can be accessed; the model cannot access Google Sheets directly.
 - Row output is capped.
+- Tracking AI tools are read-only and suggestion-only. They never call `PATCH /api/tracking/exceptions/:id`.
 - Hidden instructions, env values, cookies, and credentials must never be passed to the model.
 - The assistant must say when ETA, delay causes, cost, or other unsupported fields are unavailable.
 
@@ -138,12 +168,11 @@ qty, unit, teu, status, saleName, trade, carrier, route
 
 - No response streaming.
 - No saved chat sessions.
-- No tracking-specific tools yet.
 - No admin/user-management tools.
 - No vector store or file-search integration.
 
 ## Recommended Next Iteration
 
-1. Add tracking-specific tools such as `get_tracking_exceptions`.
-2. Add basic request logging with request ID and latency, without logging prompts or full answers by default.
-3. Add streaming only after the synchronous tool path remains stable in production.
+1. Add basic request logging with request ID and latency, without logging prompts or full answers by default.
+2. Add streaming only after the synchronous tool path remains stable in production.
+3. Add notification or assignment write-back only after a separate approval and audit design.

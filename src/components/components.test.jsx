@@ -267,6 +267,40 @@ describe("AI chat drawer", () => {
     expect(screen.getByText(/1 rows/)).toBeInTheDocument();
   });
 
+  test("scrolls the message log when new AI chat messages arrive", async () => {
+    const user = userEvent.setup();
+    const scrollTo = vi.fn();
+    const originalScrollTo = HTMLElement.prototype.scrollTo;
+    HTMLElement.prototype.scrollTo = scrollTo;
+    sendAiChatMessage.mockResolvedValue({
+      answer: "New answer",
+      dataUsed: { tools: [], rowsMatched: 0, rowLimitApplied: false },
+    });
+
+    try {
+      renderWithRouter(<AiChatDrawer filters={{}} pageContext={{ route: "/", recordCount: 0 }} />);
+
+      await user.click(screen.getByRole("button", { name: "AI" }));
+      scrollTo.mockClear();
+
+      await user.type(screen.getByPlaceholderText("Ask about selected shipment data..."), "Scroll check");
+      await user.click(screen.getByRole("button", { name: "Send" }));
+
+      expect(await screen.findByText("New answer")).toBeInTheDocument();
+      await waitFor(() => expect(scrollTo).toHaveBeenCalled());
+      expect(scrollTo).toHaveBeenLastCalledWith(expect.objectContaining({
+        top: expect.any(Number),
+        behavior: "smooth",
+      }));
+    } finally {
+      if (originalScrollTo) {
+        HTMLElement.prototype.scrollTo = originalScrollTo;
+      } else {
+        delete HTMLElement.prototype.scrollTo;
+      }
+    }
+  });
+
   test("renders AI chat errors", async () => {
     const user = userEvent.setup();
     sendAiChatMessage.mockRejectedValue(new Error("AI chat is not configured"));
