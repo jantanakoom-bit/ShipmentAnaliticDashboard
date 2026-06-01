@@ -9,6 +9,7 @@ import AdminPage from "./AdminPage";
 import AnalyticsPage from "./AnalyticsPage";
 import DashboardPage from "./DashboardPage";
 import ShipmentsPage from "./ShipmentsPage";
+import TrackingPage from "./TrackingPage";
 
 vi.mock("../lib/api", () => ({
   apiRequest: vi.fn(),
@@ -115,6 +116,175 @@ describe("ShipmentsPage", () => {
     expect(createObjectURL).toHaveBeenCalledTimes(1);
     expect(click).toHaveBeenCalledTimes(1);
     expect(revokeObjectURL).toHaveBeenCalledWith("blob:shipments");
+  });
+
+  test("creates, updates, and soft-deletes shipments with role-aware controls", async () => {
+    const user = userEvent.setup();
+    const onDataRefresh = vi.fn();
+    apiRequest.mockImplementation(async (path, options = {}) => {
+      if (path === "/api/shipments" && options.method === "POST") {
+        return { row: { ...shipmentRows[0], recordId: "rec-created", bookingNo: "BK-NEW" } };
+      }
+      if (path === "/api/shipments/rec-001" && options.method === "PATCH") {
+        return { row: { ...shipmentRows[0], status: "Completed" } };
+      }
+      if (path === "/api/shipments/rec-001" && options.method === "DELETE") {
+        return { row: { ...shipmentRows[0], isDeleted: true } };
+      }
+      throw new Error(`Unhandled request: ${path}`);
+    });
+
+    renderWithRouter(
+      <ShipmentsPage
+        filteredRows={[{ ...shipmentRows[0], recordId: "rec-001", ownerUserId: "user-1" }]}
+        currentUser={normalUser}
+        onDataRefresh={onDataRefresh}
+      />,
+    );
+
+    expect(screen.queryByLabelText("Owner user id")).not.toBeInTheDocument();
+    await user.click(screen.getByRole("button", { name: "Add Shipment" }));
+    await user.type(screen.getByLabelText("Booking No"), "BK-NEW");
+    await user.type(screen.getByLabelText("Job No"), "JOB-NEW");
+    await user.type(screen.getByLabelText("Shipper"), "Created Co");
+    await user.click(screen.getByRole("button", { name: "Create Shipment" }));
+
+    await user.click(screen.getByRole("button", { name: "View BK-001" }));
+    const dialog = screen.getByRole("dialog", { name: "Shipment Detail: BK-001" });
+    expect(within(dialog).getByText("Shipment Detail: BK-001")).toBeInTheDocument();
+    await user.selectOptions(within(dialog).getByLabelText("Status"), "Completed");
+    await user.click(within(dialog).getByRole("button", { name: "Save Changes" }));
+    await user.click(within(dialog).getByRole("button", { name: "Delete Shipment" }));
+
+    const confirmDialog = screen.getByRole("dialog", { name: "Delete shipment BK-001?" });
+    expect(within(confirmDialog).getByText("This action will remove the shipment from the active list.")).toBeInTheDocument();
+    expect(apiRequest).not.toHaveBeenCalledWith("/api/shipments/rec-001", expect.objectContaining({ method: "DELETE" }));
+    await user.click(within(confirmDialog).getByRole("button", { name: "Cancel" }));
+    expect(screen.queryByRole("dialog", { name: "Delete shipment BK-001?" })).not.toBeInTheDocument();
+    expect(screen.getByRole("dialog", { name: "Shipment Detail: BK-001" })).toBeInTheDocument();
+
+    await user.click(within(dialog).getByRole("button", { name: "Delete Shipment" }));
+    await user.click(within(screen.getByRole("dialog", { name: "Delete shipment BK-001?" })).getByRole("button", { name: "Confirm Delete" }));
+
+    await waitFor(() => {
+      expect(apiRequest).toHaveBeenCalledWith("/api/shipments", expect.objectContaining({ method: "POST" }));
+      expect(apiRequest).toHaveBeenCalledWith("/api/shipments/rec-001", expect.objectContaining({ method: "PATCH" }));
+      expect(apiRequest).toHaveBeenCalledWith("/api/shipments/rec-001", expect.objectContaining({ method: "DELETE" }));
+      expect(onDataRefresh).toHaveBeenCalledTimes(3);
+    });
+  });
+
+  test("shows owner filter and owner fields for moderator/admin shipment management", async () => {
+    renderWithRouter(
+      <ShipmentsPage
+        filteredRows={shipmentRows.map((row, index) => ({
+          ...row,
+          recordId: `rec-${index + 1}`,
+          ownerUsername: index === 1 ? "mint" : "pan",
+        }))}
+        currentUser={{ ...adminUser, role: "moderator" }}
+        onDataRefresh={vi.fn()}
+      />,
+    );
+
+    expect(screen.getByLabelText("Sales Person")).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Add Shipment" })).toBeInTheDocument();
+  });
+
+  test("opens read-only detail view for legacy rows without record ids", async () => {
+    const user = userEvent.setup();
+    renderWithRouter(
+      <ShipmentsPage
+        filteredRows={[{ ...shipmentRows[0], recordId: "" }]}
+        currentUser={normalUser}
+        onDataRefresh={vi.fn()}
+      />,
+    );
+
+    await user.click(screen.getByRole("button", { name: "View BK-001" }));
+    const dialog = screen.getByRole("dialog", { name: "Shipment Detail: BK-001" });
+    expect(within(dialog).getByText("Shipment Detail: BK-001")).toBeInTheDocument();
+    expect(within(dialog).getByRole("button", { name: "Save Changes" })).toBeDisabled();
+    expect(within(dialog).getByRole("button", { name: "Delete Shipment" })).toBeDisabled();
+    expect(screen.queryByRole("dialog", { name: "Delete shipment BK-001?" })).not.toBeInTheDocument();
+  });
+
+  test("keeps delete failures visible inside the confirmation dialog", async () => {
+    const user = userEvent.setup();
+    apiRequest.mockImplementation(async (path, options = {}) => {
+      if (path === "/api/shipments/rec-001" && options.method === "DELETE") {
+        throw new Error("Unable to delete test shipment");
+      }
+      throw new Error(`Unhandled request: ${path}`);
+    });
+
+    renderWithRouter(
+      <ShipmentsPage
+        filteredRows={[{ ...shipmentRows[0], recordId: "rec-001" }]}
+        currentUser={normalUser}
+        onDataRefresh={vi.fn()}
+      />,
+    );
+
+    await user.click(screen.getByRole("button", { name: "View BK-001" }));
+    await user.click(within(screen.getByRole("dialog", { name: "Shipment Detail: BK-001" })).getByRole("button", { name: "Delete Shipment" }));
+    const confirmDialog = screen.getByRole("dialog", { name: "Delete shipment BK-001?" });
+    await user.click(within(confirmDialog).getByRole("button", { name: "Confirm Delete" }));
+
+    expect(await within(confirmDialog).findByText("Unable to delete test shipment")).toBeInTheDocument();
+    expect(screen.getByRole("dialog", { name: "Delete shipment BK-001?" })).toBeInTheDocument();
+  });
+
+  test("keeps the add shipment form inline instead of opening a dialog", async () => {
+    const user = userEvent.setup();
+    renderWithRouter(
+      <ShipmentsPage
+        filteredRows={shipmentRows}
+        currentUser={normalUser}
+        onDataRefresh={vi.fn()}
+      />,
+    );
+
+    await user.click(screen.getByRole("button", { name: "Add Shipment" }));
+
+    expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Create Shipment" })).toBeInTheDocument();
+  });
+});
+
+describe("TrackingPage", () => {
+  test("renders operational KPIs, milestones, and filters exception rows", async () => {
+    const user = userEvent.setup();
+    const rows = [
+      {
+        ...shipmentRows[0],
+        shipmentId: "SHP-001",
+        eta: new Date("2026-05-20T00:00:00.000Z"),
+        currentMilestone: "In Transit",
+        lastEventTime: new Date("2026-05-29T00:00:00.000Z"),
+      },
+      {
+        ...shipmentRows[1],
+        shipmentId: "SHP-002",
+        eta: new Date("2026-06-10T00:00:00.000Z"),
+        currentMilestone: "Booked",
+        lastEventTime: new Date("2026-05-20T00:00:00.000Z"),
+      },
+    ];
+
+    renderWithRouter(<TrackingPage filteredRows={rows} now={new Date("2026-06-01T00:00:00.000Z")} />);
+
+    expect(screen.getByText("Operational Tracking")).toBeInTheDocument();
+    expect(screen.getByText("2 active exceptions")).toBeInTheDocument();
+    expect(screen.getByText("Tracked Shipments")).toBeInTheDocument();
+    expect(screen.getAllByText("Delayed").length).toBeGreaterThan(0);
+    expect(screen.getAllByText("In Transit").length).toBeGreaterThan(0);
+    expect(screen.getByText("BK-001")).toBeInTheDocument();
+    expect(screen.getByText("BK-002")).toBeInTheDocument();
+
+    await user.selectOptions(screen.getByLabelText("Exception type"), "delayed");
+    expect(screen.getByText("BK-001")).toBeInTheDocument();
+    expect(screen.queryByText("BK-002")).not.toBeInTheDocument();
   });
 });
 

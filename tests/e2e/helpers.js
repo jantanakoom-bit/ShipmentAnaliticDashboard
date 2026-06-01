@@ -14,6 +14,14 @@ export const normalUser = {
   displayName: "View User",
 };
 
+export const moderatorUser = {
+  ...adminUser,
+  id: "user-4",
+  username: "moderator",
+  role: "moderator",
+  displayName: "Moderator User",
+};
+
 const ports = [
   { port: "Tokyo", country: "Japan", trade: "Asia", carrier: "Carrier A", saleName: "Pan", unit: "40HC", teu: 4, qty: 2 },
   { port: "Hamburg", country: "Germany", trade: "Europe", carrier: "Carrier B", saleName: "Mint", unit: "20DC", teu: 1, qty: 1 },
@@ -52,6 +60,18 @@ export function buildRows(count = 60) {
       trade: template.trade,
       carrier: template.carrier,
       route: `BKK -> ${template.port}`,
+      shipmentId: `SHP-${String(index + 1).padStart(3, "0")}`,
+      recordId: `rec-${String(index + 1).padStart(3, "0")}`,
+      ownerUserId: template.saleName === "Mint" ? "user-3" : "user-2",
+      ownerUsername: template.saleName === "Mint" ? "mint" : "viewer",
+      containerNo: `CONT-${String(index + 1).padStart(3, "0")}`,
+      eta: index % 3 === 0 ? "2024-02-01T00:00:00.000Z" : "2027-02-01T00:00:00.000Z",
+      ata: null,
+      currentMilestone: index % 3 === 0 ? "In Transit" : "Booked",
+      lastEventTime: index % 3 === 0 ? "2024-01-10T00:00:00.000Z" : "2027-01-10T00:00:00.000Z",
+      delayDays: index % 3 === 0 ? 5 : 0,
+      delayReason: index % 3 === 0 ? "Carrier delay" : "",
+      onTimeFlag: index % 3 === 0 ? "No" : "Yes",
     };
   });
 }
@@ -61,6 +81,7 @@ export async function mockDashboardApi(
   { user = adminUser, sessionStartsAuthenticated = false, workbookFails = false, rows = buildRows() } = {},
 ) {
   let authenticated = sessionStartsAuthenticated;
+  let workbookRows = [...rows];
   let users = [
     adminUser,
     { id: "user-3", username: "disabled", role: "user", displayName: "Disabled User", status: "disabled" },
@@ -92,9 +113,62 @@ export async function mockDashboardApi(
       status: 200,
       json: {
         metadata: { source: "e2e-fixture.xlsx", shipments: rows.length },
-        detailData: rows,
+        detailData: workbookRows.filter((row) => !row.isDeleted),
       },
     });
+  });
+
+  await page.route("**/api/shipments/*", async (route) => {
+    const request = route.request();
+    const id = decodeURIComponent(new URL(request.url()).pathname.split("/").pop());
+    const index = workbookRows.findIndex((row) => row.recordId === id);
+    if (index === -1) {
+      await route.fulfill({ status: 404, json: { error: "Shipment not found." } });
+      return;
+    }
+    if (request.method() === "PATCH") {
+      workbookRows[index] = { ...workbookRows[index], ...request.postDataJSON(), updatedBy: user.id };
+      await route.fulfill({ status: 200, json: { row: workbookRows[index] } });
+      return;
+    }
+    if (request.method() === "DELETE") {
+      workbookRows[index] = { ...workbookRows[index], isDeleted: true, deletedBy: user.id };
+      await route.fulfill({ status: 200, json: { row: workbookRows[index] } });
+      return;
+    }
+    await route.fulfill({ status: 200, json: { row: workbookRows[index] } });
+  });
+
+  await page.route("**/api/shipments", async (route) => {
+    const request = route.request();
+    if (request.method() === "POST") {
+      const body = request.postDataJSON();
+      const createdDate = body.date ? new Date(`${body.date}T00:00:00.000Z`) : new Date();
+      const monthNumber = createdDate.getUTCMonth() + 1;
+      const year = createdDate.getUTCFullYear();
+      const row = {
+        ...body,
+        date: createdDate.toISOString(),
+        monthLabel: createdDate.toLocaleString("en", { month: "short", year: "numeric", timeZone: "UTC" }),
+        year,
+        quarter: `Q${Math.ceil(monthNumber / 3)}`,
+        yearQuarter: `${year} Q${Math.ceil(monthNumber / 3)}`,
+        monthNumber,
+        monthName: createdDate.toLocaleString("en", { month: "long", timeZone: "UTC" }),
+        yearMonth: `${year}-${String(monthNumber).padStart(2, "0")}`,
+        route: `BKK -> ${body.port || body.destination || "Unknown"}`,
+        recordId: `rec-${String(workbookRows.length + 1).padStart(3, "0")}`,
+        ownerUserId: user.id,
+        ownerUsername: user.username,
+        createdBy: user.id,
+        updatedBy: user.id,
+        isDeleted: false,
+      };
+      workbookRows = [row, ...workbookRows];
+      await route.fulfill({ status: 201, json: { row } });
+      return;
+    }
+    await route.fallback();
   });
 
   await page.route("**/api/admin/users/*", async (route) => {

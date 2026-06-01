@@ -29,6 +29,15 @@ const detailData = [
     trade: "Asia",
     carrier: "Carrier A",
     route: "BKK -> Tokyo",
+    shipmentId: "SHP-001",
+    recordId: "rec-001",
+    ownerUserId: "user-1",
+    ownerUsername: "tester",
+    isDeleted: false,
+    containerNo: "CONT-001",
+    eta: new Date("2024-01-20T00:00:00.000Z"),
+    currentMilestone: "In Transit",
+    lastEventTime: new Date("2024-01-10T00:00:00.000Z"),
   },
   {
     date: new Date(Date.UTC(2024, 3, 10)),
@@ -56,6 +65,14 @@ const detailData = [
     trade: "Europe",
     carrier: "Carrier B",
     route: "BKK -> Hamburg",
+    shipmentId: "SHP-002",
+    recordId: "rec-002",
+    ownerUserId: "user-2",
+    ownerUsername: "mint",
+    isDeleted: false,
+    eta: new Date("2026-07-10T00:00:00.000Z"),
+    currentMilestone: "Booked",
+    lastEventTime: new Date("2026-06-01T00:00:00.000Z"),
   },
 ];
 
@@ -78,13 +95,72 @@ const workbookData = {
 };
 
 function buildTestApp(overrides = {}) {
+  const mutableRows = overrides.mutableRows || detailData.map((row) => ({ ...row }));
+  const shipmentStore = overrides.shipmentStore || {
+    createShipment: async ({ body, session }) => {
+      const row = {
+        ...body,
+        date: new Date(`${body.date || "2026-06-01"}T00:00:00.000Z`),
+        recordId: "rec-created",
+        ownerUserId: session.user.id,
+        ownerUsername: session.user.username,
+        createdBy: session.user.id,
+        updatedBy: session.user.id,
+        createdAt: "2026-06-01T00:00:00.000Z",
+        updatedAt: "2026-06-01T00:00:00.000Z",
+        isDeleted: false,
+      };
+      mutableRows.push(row);
+      return row;
+    },
+    updateShipment: async (recordId, patch, { session }) => {
+      const index = mutableRows.findIndex((row) => row.recordId === recordId);
+      if (index === -1) {
+        const error = new Error("Shipment not found.");
+        error.status = 404;
+        throw error;
+      }
+      mutableRows[index] = {
+        ...mutableRows[index],
+        ...patch,
+        updatedBy: session.user.id,
+        updatedAt: "2026-06-01T00:00:00.000Z",
+      };
+      return mutableRows[index];
+    },
+    softDeleteShipment: async (recordId, { session }) => {
+      const index = mutableRows.findIndex((row) => row.recordId === recordId);
+      if (index === -1) {
+        const error = new Error("Shipment not found.");
+        error.status = 404;
+        throw error;
+      }
+      mutableRows[index] = {
+        ...mutableRows[index],
+        isDeleted: true,
+        deletedBy: session.user.id,
+        deletedAt: "2026-06-01T00:00:00.000Z",
+        updatedBy: session.user.id,
+        updatedAt: "2026-06-01T00:00:00.000Z",
+      };
+      return mutableRows[index];
+    },
+  };
+
   return createApp({
     rootDir: "/tmp/shipment-test",
     resolveWorkbookPath: () => "/tmp/shipment-test/Detail_Report_Format.xlsx",
-    loadWorkbookData: () => workbookData,
+    loadWorkbookData: () => ({ ...workbookData, detailData: mutableRows }),
+    shipmentStore,
     requireSession: async (req, res) => {
       if (req.headers.authorization === "Bearer test-user") {
         return { user: { id: "user-1", username: "tester", role: "user" } };
+      }
+      if (req.headers.authorization === "Bearer moderator") {
+        return { user: { id: "mod-1", username: "moderator", role: "moderator" } };
+      }
+      if (req.headers.authorization === "Bearer admin") {
+        return { user: { id: "admin-1", username: "admin", role: "admin" } };
       }
 
       res.status(401).json({ error: "Authentication required" });
@@ -116,11 +192,32 @@ describe("createApp", () => {
   test("serves workbook data to authenticated requests", async () => {
     const response = await request(buildTestApp())
       .get("/api/workbook")
-      .set("Authorization", "Bearer test-user")
+      .set("Authorization", "Bearer admin")
       .expect(200);
 
     expect(response.body.metadata.shipments).toBe(2);
     expect(response.body.detailData[0].date).toBe("2024-01-15T00:00:00.000Z");
+  });
+
+  test("scopes workbook rows to the authenticated sales user", async () => {
+    const response = await request(buildTestApp())
+      .get("/api/workbook")
+      .set("Authorization", "Bearer test-user")
+      .expect(200);
+
+    expect(response.body.metadata.shipments).toBe(1);
+    expect(response.body.detailData.map((row) => row.recordId)).toEqual(["rec-001"]);
+    expect(response.body.metadata.filters.trades).toEqual(["Asia"]);
+  });
+
+  test("allows moderator to view all non-deleted sales records", async () => {
+    const response = await request(buildTestApp())
+      .get("/api/shipments?limit=10")
+      .set("Authorization", "Bearer moderator")
+      .expect(200);
+
+    expect(response.body.count).toBe(2);
+    expect(response.body.rows.map((row) => row.recordId)).toEqual(["rec-001", "rec-002"]);
   });
 
   test("filters shipments and clamps the response limit", async () => {
@@ -138,10 +235,70 @@ describe("createApp", () => {
     });
   });
 
+  test("blocks direct access to another user's shipment record", async () => {
+    await request(buildTestApp())
+      .get("/api/shipments/rec-002")
+      .set("Authorization", "Bearer test-user")
+      .expect(403);
+  });
+
+  test("creates shipments under the authenticated user instead of submitted owner", async () => {
+    const response = await request(buildTestApp())
+      .post("/api/shipments")
+      .set("Authorization", "Bearer test-user")
+      .send({
+        bookingNo: "BK-NEW",
+        jobNo: "JOB-NEW",
+        shipper: "Created Co",
+        trade: "Asia",
+        carrier: "Carrier A",
+        saleName: "Tester",
+        ownerUserId: "user-2",
+      })
+      .expect(201);
+
+    expect(response.body.row).toMatchObject({
+      recordId: "rec-created",
+      ownerUserId: "user-1",
+      ownerUsername: "tester",
+      bookingNo: "BK-NEW",
+    });
+  });
+
+  test("allows user to update own shipment and prevents owner escalation", async () => {
+    const response = await request(buildTestApp())
+      .patch("/api/shipments/rec-001")
+      .set("Authorization", "Bearer test-user")
+      .send({ status: "Completed", ownerUserId: "user-2" })
+      .expect(200);
+
+    expect(response.body.row).toMatchObject({
+      recordId: "rec-001",
+      status: "Completed",
+      ownerUserId: "user-1",
+      updatedBy: "user-1",
+    });
+  });
+
+  test("soft-deletes owned shipment records", async () => {
+    const rows = detailData.map((row) => ({ ...row }));
+    await request(buildTestApp({ mutableRows: rows }))
+      .delete("/api/shipments/rec-001")
+      .set("Authorization", "Bearer test-user")
+      .expect(200);
+
+    const response = await request(buildTestApp({ mutableRows: rows }))
+      .get("/api/workbook")
+      .set("Authorization", "Bearer admin")
+      .expect(200);
+
+    expect(response.body.detailData.map((row) => row.recordId)).toEqual(["rec-002"]);
+  });
+
   test("builds analytics and falls back invalid grain to month", async () => {
     const response = await request(buildTestApp())
       .get("/api/analytics?grain=invalid")
-      .set("Authorization", "Bearer test-user")
+      .set("Authorization", "Bearer admin")
       .expect(200);
 
     expect(response.body.summary).toMatchObject({
@@ -152,6 +309,36 @@ describe("createApp", () => {
       activeRoutes: 2,
     });
     expect(response.body.timeSeries.map((item) => item.key)).toEqual(["2024-01", "2024-04"]);
+  });
+
+  test("rejects protected tracking requests without a session", async () => {
+    const response = await request(buildTestApp()).get("/api/tracking").expect(401);
+
+    expect(response.body).toEqual({ error: "Authentication required" });
+  });
+
+  test("serves tracking summary and filtered exceptions to authenticated requests", async () => {
+    const tracking = await request(buildTestApp())
+      .get("/api/tracking?milestone=In%20Transit")
+      .set("Authorization", "Bearer test-user")
+      .expect(200);
+
+    expect(tracking.body.summary.totalShipments).toBe(1);
+    expect(tracking.body.rows[0]).toMatchObject({
+      shipmentId: "SHP-001",
+      bookingNo: "BK-001",
+      currentMilestone: "In Transit",
+      exceptionTypes: expect.arrayContaining(["delayed", "stale"]),
+    });
+    expect(tracking.body.rows[0].eta).toBe("2024-01-20T00:00:00.000Z");
+
+    const exceptions = await request(buildTestApp())
+      .get("/api/tracking/exceptions?exceptionType=delayed")
+      .set("Authorization", "Bearer test-user")
+      .expect(200);
+
+    expect(exceptions.body.count).toBe(1);
+    expect(exceptions.body.rows[0].shipmentId).toBe("SHP-001");
   });
 
   test("rejects unauthenticated AI chat requests", async () => {

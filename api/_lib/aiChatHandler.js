@@ -1,6 +1,8 @@
 import { getRequestBody, sendJson, sendMethodNotAllowed } from "./http.js";
 import { requireSession as defaultRequireSession } from "./authHandlers.js";
 import { createAiChatResponse, AiChatConfigError, AiChatValidationError } from "./aiChatService.js";
+import { scopeWorkbookDataForUser } from "./shipmentHandlers.js";
+import { loadWorkbookData as defaultLoadWorkbookData } from "./workbook.js";
 
 const RATE_LIMIT_WINDOW_MS = 60 * 1000;
 const RATE_LIMIT_MAX = 20;
@@ -18,6 +20,7 @@ export async function aiChatHandler(req, res, deps = {}) {
   }
 
   const body = getRequestBody(req);
+  const loadWorkbookData = deps.loadWorkbookData || defaultLoadWorkbookData;
 
   try {
     const result = await createAiChatResponse({
@@ -25,7 +28,7 @@ export async function aiChatHandler(req, res, deps = {}) {
       filters: body.filters,
       pageContext: body.pageContext,
       openAIClient: deps.openAIClient,
-      loadWorkbookData: deps.loadWorkbookData,
+      loadWorkbookData: async () => scopeWorkbookDataForUser(await loadWorkbookData(), session.user),
       model: deps.model,
       maxRows: deps.maxRows,
       maxMessages: deps.maxMessages,

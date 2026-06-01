@@ -1,15 +1,16 @@
 # Shipment Analytic Dashboard
 
-Shipment analytics dashboard — React frontend + Vercel Serverless Functions, backed by Google Sheets as the data source and user store.
+Shipment analytics and operational tracking dashboard — React frontend + Vercel Serverless Functions, backed by Google Sheets as the data source and user store.
 
 ## Stack
 
 | Layer | Tech |
 |-------|------|
 | Frontend | React 19, Recharts, custom CSS (DM Sans + IBM Plex Mono) |
-| Backend | Vercel Serverless Functions (Express-compatible req/res) |
+| Backend | Vercel Serverless Functions (Express-compatible req/res) + local Express dev server |
 | Auth | Session-based JWT (jose + bcryptjs), HttpOnly cookies |
-| Data | Google Sheets API (googleapis) — shipment data + user credentials |
+| Data | Google Sheets API (googleapis) — shipment data, tracking fields, user credentials |
+| AI | OpenAI SDK behind authenticated `/api/chat` |
 | Build | Vite 7 |
 | Test | Vitest 4 (unit + API) · Playwright 1.60 (E2E) |
 | CI | GitHub Actions — lint, unit/API, build, E2E |
@@ -39,21 +40,26 @@ Two terminals needed for local dev: `npm run dev` + `npm run dev:server`.
 │   │   ├── createApp.js  # Express factory (local dev only)
 │   │   ├── authHandlers.js, adminHandlers.js
 │   │   ├── googleSheets.js, session.js, http.js, users.js
-│   │   └── workbook.js   # data loading, filtering, analytics
+│   │   ├── workbook.js   # data loading, filtering, analytics
+│   │   ├── tracking.js, trackingHandlers.js
+│   │   └── aiChat*.js    # chat handler, service, prompts, tools
 │   ├── auth/             # login, logout, session endpoints
 │   ├── admin/users/      # admin user CRUD (REST)
 │   ├── health.js         # GET /api/health
 │   ├── workbook.js       # GET /api/workbook
 │   ├── metadata.js       # GET /api/metadata
 │   ├── shipments.js      # GET /api/shipments
-│   └── analytics.js      # GET /api/analytics
+│   ├── analytics.js      # GET /api/analytics
+│   ├── tracking.js       # GET /api/tracking
+│   ├── tracking/         # GET /api/tracking/exceptions
+│   └── chat.js           # POST /api/chat
 ├── src/                  # React frontend
 │   ├── components/       # UI components
 │   ├── pages/            # page components (lazy-loaded)
-│   └── lib/              # dashboard.js (transforms), loadWorkbook.js, api.js, constants.js, utils.js
+│   └── lib/              # dashboard.js, tracking.js, aiChat.js, loadWorkbook.js, api.js, constants.js, utils.js
 ├── tests/e2e/            # Playwright specs
 ├── scripts/              # hash-password utility
-├── docs/                 # design reference, devops guide, test plan
+├── docs/                 # architecture, API, data contract, tracking, AI chat, deployment, testing
 ├── server.js             # Express entry point (local dev only)
 ├── vercel.json           # Vercel config — build, output, SPA rewrites
 ├── vite.config.js        # Vite + Vitest config, dev proxy
@@ -69,6 +75,8 @@ Two terminals needed for local dev: `npm run dev` + `npm run dev:server`.
 - **api/_lib/** contains shared logic (excluded from routing by `_` prefix)
 - **api/_lib/createApp.js** + **server.js** provide Express for local development only
 - **Google Sheets** serves dual purpose: user authentication table + shipment data source
+- **Operational tracking** is derived from optional fields on the same `Detail Data` rows
+- **AI chat** runs through backend tools only; OpenAI keys never reach the browser
 - **Vite dev proxy** routes `/api` to Express in development
 - **Pages are lazy-loaded** via `React.lazy` — AnalyticsPage (Recharts) loads on demand
 
@@ -84,6 +92,9 @@ Two terminals needed for local dev: `npm run dev` + `npm run dev:server`.
 | GET | `/api/metadata` | Data source metadata (authenticated) |
 | GET | `/api/shipments` | Filtered shipments with pagination (authenticated) |
 | GET | `/api/analytics` | Aggregated analytics (authenticated) |
+| GET | `/api/tracking` | Tracking milestones, summary, exceptions (authenticated) |
+| GET | `/api/tracking/exceptions` | Exception-only tracking queue (authenticated) |
+| POST | `/api/chat` | AI shipment assistant (authenticated, OpenAI configured) |
 | GET | `/api/admin/users` | List users (admin) |
 | POST | `/api/admin/users` | Create user (admin) |
 | PATCH | `/api/admin/users/:id` | Update user (admin) |
@@ -91,9 +102,11 @@ Two terminals needed for local dev: `npm run dev` + `npm run dev:server`.
 ## Data Flow
 
 1. User logs in → Express validates against Google Sheets `Users` tab
-2. Frontend fetches `/api/workbook` → Express reads `Detail Data` sheet
-3. `dashboard.js` transforms raw rows into KPIs, charts, rankings, filters
-4. Components render via props from App.jsx state
+2. Frontend fetches `/api/workbook` → API reads `Detail Data` sheet
+3. `dashboard.js` transforms rows into KPIs, charts, rankings, filters
+4. `tracking.js` derives milestones and exception queues from optional tracking fields
+5. `/api/chat` uses backend tools to query capped workbook summaries for OpenAI
+6. Components render via props from App.jsx state
 
 ## Coding Conventions
 
@@ -107,8 +120,8 @@ Two terminals needed for local dev: `npm run dev` + `npm run dev:server`.
 
 ## Testing
 
-- **Unit tests:** `src/lib/*.test.js` — data transforms, workbook parsing
-- **API tests:** `api/_lib/*.test.js` — auth, health, workbook endpoints
+- **Unit tests:** `src/lib/*.test.js` — data transforms, workbook parsing, tracking view model
+- **API tests:** `api/_lib/*.test.js` — auth, health, workbook, tracking, AI tools
 - **E2E tests:** `tests/e2e/*.spec.js` — Playwright, chromium only
 - Test runner: Vitest for unit/API, Playwright for E2E
 - CI runs all three layers: `npm test` → `npm run build` → `npm run test:e2e`
@@ -170,6 +183,10 @@ Set in Vercel Dashboard → Settings → Environment Variables:
 | `USER_SHEET_NAME` | Users tab name (default: `Users`) |
 | `DATA_SHEET_NAME` | Data tab name (default: `Detail Data`) |
 | `VITE_API_BASE_URL` | Set to `/api` (same-origin) |
+| `OPENAI_API_KEY` | Enables AI chat |
+| `OPENAI_MODEL` | Optional AI model override |
+| `AI_CHAT_MAX_MESSAGES` | Optional chat history cap |
+| `AI_CHAT_MAX_ROWS` | Optional workbook row cap for AI tools |
 
 ### Vercel Configuration (`vercel.json`)
 
@@ -190,5 +207,7 @@ Set in Vercel Dashboard → Settings → Environment Variables:
 - Period filters: month, quarter, year
 - Dashboard: KPIs, TEU trends, top trade/carrier/destination/shipper/route
 - Shipment detail drill-down table
+- Operational tracking: milestones, exception queue, delayed/stale/missing/invalid checks
+- AI chat assistant with authenticated backend tools
 - Admin user management
 - Auth with Google Sheets user store

@@ -15,6 +15,7 @@
     "test:api": "vitest run api",
     "test:e2e": "playwright test",
     "hash-password": "node scripts/hash-password.js",
+    "backfill-record-ids": "node scripts/backfill-record-ids.js",
     "docker:build": "docker compose build frontend",
     "docker:up": "docker compose up frontend",
     "docker:down": "docker compose down"

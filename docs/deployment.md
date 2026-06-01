@@ -20,6 +20,8 @@ npm run dev          # http://localhost:5173, proxies /api → :3001
 npm run dev:server   # http://localhost:3001
 ```
 
+Open `http://localhost:5173`. The Vite dev server proxies `/api` to the local Express API.
+
 ## Environment Setup
 
 ```bash
@@ -31,10 +33,17 @@ Required variables:
 | Variable | Purpose |
 |----------|---------|
 | `SESSION_SECRET` | JWT signing key |
-| `GOOGLE_SERVICE_ACCOUNT_EMAIL` | Google service account email |
+| `GOOGLE_CLIENT_EMAIL` | Google service account email |
 | `GOOGLE_PRIVATE_KEY` | Google service account private key |
 | `GOOGLE_SHEET_ID` | Google Sheets spreadsheet ID |
+| `USER_SHEET_NAME` | Users tab name, defaults to `Users` |
+| `DATA_SHEET_NAME` | Shipment tab name, defaults to `Detail Data` |
 | `PORT` | Express port (default: 3001) |
+| `CORS_ORIGIN` | Optional local/backend CORS origin override |
+| `OPENAI_API_KEY` | Required only for AI chat |
+| `OPENAI_MODEL` | Optional AI chat model override |
+| `AI_CHAT_MAX_MESSAGES` | Optional AI chat history cap |
+| `AI_CHAT_MAX_ROWS` | Optional AI chat row output cap |
 
 Frontend env vars must use `VITE_` prefix for Vite to expose them.
 
@@ -87,6 +96,7 @@ Rebuild the frontend image after changing `VITE_API_BASE_URL`.
 
 ```bash
 npm test              # Unit + API tests (Vitest)
+npm run build         # Production frontend build
 npm run test:e2e      # E2E tests (Playwright, chromium)
 ```
 
@@ -111,6 +121,9 @@ curl http://localhost:3001/api/auth/session
 
 # Workbook data (requires auth)
 curl http://localhost:3001/api/workbook
+
+# Tracking data (requires auth)
+curl http://localhost:3001/api/tracking
 ```
 
 ## Operational Notes
@@ -119,3 +132,4 @@ curl http://localhost:3001/api/workbook
 - Backend image: production deps only, serves `server.js`
 - `.dockerignore` excludes `.env`, `node_modules`, `dist/`, `docs/`
 - Never commit `.env` — only `.env.example`
+- Vercel is the primary deployment target; Docker is maintained as an alternate local/container deployment path.

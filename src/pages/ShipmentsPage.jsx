@@ -1,4 +1,5 @@
 import { useMemo, useState, useRef, useCallback } from "react";
+import { apiRequest } from "../lib/api";
 import { formatNumber, formatDate } from "../lib/utils";
 
 const COLUMNS = [
@@ -17,8 +18,27 @@ const COLUMNS = [
 ];
 
 const ROWS_PER_PAGE_OPTIONS = [25, 50, 100];
+const STATUS_OPTIONS = ["Booked", "Pending", "Loaded", "In Transit", "Completed", "Cancelled", "Unspecified"];
 
-export default function ShipmentsPage({ filteredRows }) {
+const EMPTY_FORM = {
+  date: "",
+  bookingNo: "",
+  jobNo: "",
+  shipper: "",
+  port: "",
+  country: "",
+  trade: "",
+  carrier: "",
+  saleName: "",
+  qty: "",
+  unit: "",
+  teu: "",
+  status: "Booked",
+  ownerUserId: "",
+  ownerUsername: "",
+};
+
+export default function ShipmentsPage({ filteredRows, currentUser, onDataRefresh }) {
   const [tableSearch, setTableSearch] = useState("");
   const [sortState, setSortState] = useState({ key: "date", direction: "asc" });
   const [currentPage, setCurrentPage] = useState(1);
@@ -27,14 +47,35 @@ export default function ShipmentsPage({ filteredRows }) {
     () => new Set(COLUMNS.map((col) => col.key)),
   );
   const [colDropdownOpen, setColDropdownOpen] = useState(false);
+  const [ownerFilter, setOwnerFilter] = useState("All");
+  const [formMode, setFormMode] = useState("");
+  const [activeRow, setActiveRow] = useState(null);
+  const [form, setForm] = useState(EMPTY_FORM);
+  const [saving, setSaving] = useState(false);
+  const [message, setMessage] = useState("");
+  const [deleteConfirmOpen, setDeleteConfirmOpen] = useState(false);
   const colToggleRef = useRef(null);
+  const canCrud = Boolean(currentUser?.role);
+  const canViewAll = currentUser?.role === "admin" || currentUser?.role === "moderator";
+
+  const ownerOptions = useMemo(() => {
+    return [...new Set(filteredRows.map((row) => row.ownerUsername || row.saleName).filter(Boolean))]
+      .sort((a, b) => a.localeCompare(b));
+  }, [filteredRows]);
+
+  const ownerFilteredRows = useMemo(() => {
+    if (!canViewAll || ownerFilter === "All") {
+      return filteredRows;
+    }
+    return filteredRows.filter((row) => (row.ownerUsername || row.saleName) === ownerFilter);
+  }, [canViewAll, filteredRows, ownerFilter]);
 
   const searchedRows = useMemo(() => {
     const search = tableSearch.trim().toLowerCase();
     if (!search) {
-      return filteredRows;
+      return ownerFilteredRows;
     }
-    return filteredRows.filter((row) =>
+    return ownerFilteredRows.filter((row) =>
       [
         row.bookingNo,
         row.jobNo,
@@ -49,7 +90,7 @@ export default function ShipmentsPage({ filteredRows }) {
         .toLowerCase()
         .includes(search),
     );
-  }, [filteredRows, tableSearch]);
+  }, [ownerFilteredRows, tableSearch]);
 
   const sortedRows = useMemo(() => {
     return [...searchedRows].sort((left, right) => {
@@ -119,6 +160,104 @@ export default function ShipmentsPage({ filteredRows }) {
       }
       return next;
     });
+  }
+
+  function openCreateForm() {
+    setForm(EMPTY_FORM);
+    setActiveRow(null);
+    setFormMode("create");
+    setDeleteConfirmOpen(false);
+    setMessage("");
+  }
+
+  function openDetail(row) {
+    setActiveRow(row);
+    setForm(rowToForm(row));
+    setFormMode("detail");
+    setDeleteConfirmOpen(false);
+    setMessage("");
+  }
+
+  function closeForm() {
+    setFormMode("");
+    setActiveRow(null);
+    setForm(EMPTY_FORM);
+    setDeleteConfirmOpen(false);
+  }
+
+  function setField(key, value) {
+    setForm((current) => ({ ...current, [key]: value }));
+  }
+
+  async function refreshAfterChange(successMessage) {
+    if (onDataRefresh) {
+      await onDataRefresh();
+    }
+    setMessage(successMessage);
+  }
+
+  async function handleCreate(event) {
+    event.preventDefault();
+    setSaving(true);
+    setMessage("");
+    try {
+      await apiRequest("/api/shipments", {
+        method: "POST",
+        body: JSON.stringify(normalizePayload(form, canViewAll)),
+      });
+      closeForm();
+      await refreshAfterChange("Shipment created successfully");
+    } catch (error) {
+      setMessage(error.message || "Unable to create shipment");
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  async function handleUpdate(event) {
+    event.preventDefault();
+    if (!activeRow?.recordId) return;
+    setSaving(true);
+    setMessage("");
+    try {
+      await apiRequest(`/api/shipments/${encodeURIComponent(activeRow.recordId)}`, {
+        method: "PATCH",
+        body: JSON.stringify(normalizePayload(form, canViewAll)),
+      });
+      await refreshAfterChange("Shipment updated successfully");
+    } catch (error) {
+      setMessage(error.message || "Unable to update shipment");
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  async function handleDelete() {
+    if (!activeRow?.recordId) return;
+    setSaving(true);
+    setMessage("");
+    try {
+      await apiRequest(`/api/shipments/${encodeURIComponent(activeRow.recordId)}`, {
+        method: "DELETE",
+      });
+      closeForm();
+      await refreshAfterChange("Shipment deleted successfully");
+    } catch (error) {
+      setMessage(error.message || "Unable to delete shipment");
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  function requestDeleteConfirmation() {
+    if (!activeRow?.recordId) return;
+    setMessage("");
+    setDeleteConfirmOpen(true);
+  }
+
+  function cancelDeleteConfirmation() {
+    setDeleteConfirmOpen(false);
+    setMessage("");
   }
 
   const exportCsv = useCallback(() => {
@@ -200,6 +339,27 @@ export default function ShipmentsPage({ filteredRows }) {
             value={tableSearch}
             onChange={handleSearchChange}
           />
+          {canViewAll ? (
+            <label className="owner-filter">
+              <span>Sales Person</span>
+              <select
+                aria-label="Sales Person"
+                className="rows-select"
+                value={ownerFilter}
+                onChange={(event) => setOwnerFilter(event.target.value)}
+              >
+                <option value="All">All</option>
+                {ownerOptions.map((owner) => (
+                  <option key={owner} value={owner}>{owner}</option>
+                ))}
+              </select>
+            </label>
+          ) : null}
+          {canCrud ? (
+            <button className="btn btn-primary" type="button" onClick={openCreateForm}>
+              Add Shipment
+            </button>
+          ) : null}
           <button className="btn" type="button" onClick={exportCsv}>
             <span aria-hidden="true">↓</span>
             Export CSV
@@ -241,10 +401,66 @@ export default function ShipmentsPage({ filteredRows }) {
         </div>
       </div>
 
+      {message && formMode !== "detail" ? (
+        <div className="inline-error shipment-message">{message}</div>
+      ) : null}
+
+      {formMode === "create" ? (
+        <ShipmentEditor
+          mode={formMode}
+          form={form}
+          row={activeRow}
+          canViewAll={canViewAll}
+          saving={saving}
+          onChange={setField}
+          onCreate={handleCreate}
+          onUpdate={handleUpdate}
+          onDelete={handleDelete}
+          onClose={closeForm}
+        />
+      ) : null}
+
+      {formMode === "detail" ? (
+        <div className="shipment-modal">
+          <div className="shipment-modal-backdrop" aria-hidden="true" />
+          <div
+            className="shipment-modal-dialog"
+            role="dialog"
+            aria-modal={deleteConfirmOpen ? undefined : "true"}
+            aria-labelledby="shipment-detail-title"
+          >
+            {message && !deleteConfirmOpen ? <div className="inline-error shipment-message">{message}</div> : null}
+            <ShipmentEditor
+              mode={formMode}
+              form={form}
+              row={activeRow}
+              titleId="shipment-detail-title"
+              canViewAll={canViewAll}
+              saving={saving}
+              onChange={setField}
+              onCreate={handleCreate}
+              onUpdate={handleUpdate}
+              onDelete={requestDeleteConfirmation}
+              onClose={closeForm}
+            />
+          </div>
+          {deleteConfirmOpen ? (
+            <DeleteConfirmationDialog
+              row={activeRow}
+              saving={saving}
+              message={message}
+              onCancel={cancelDeleteConfirmation}
+              onConfirm={handleDelete}
+            />
+          ) : null}
+        </div>
+      ) : null}
+
       <div className="table-scroll">
         <table>
           <thead>
             <tr>
+              {canCrud ? <th>Actions</th> : null}
               {COLUMNS.filter((col) => visibleColumns.has(col.key)).map((col) => (
                 <th
                   key={col.key}
@@ -260,6 +476,18 @@ export default function ShipmentsPage({ filteredRows }) {
           <tbody>
             {pageRows.map((row) => (
               <tr key={`${row.bookingNo}-${row.jobNo}-${row.date?.getTime() ?? row.route}`}>
+                {canCrud ? (
+                  <td>
+                    <button
+                      className="btn-sm"
+                      type="button"
+                      onClick={() => openDetail(row)}
+                      aria-label={`View ${row.bookingNo || row.recordId || "shipment"}`}
+                    >
+                      View
+                    </button>
+                  </td>
+                ) : null}
                 {visibleColumns.has("date") && (
                   <td className="td-date">{formatDate(row.date)}</td>
                 )}
@@ -295,6 +523,7 @@ export default function ShipmentsPage({ filteredRows }) {
               </tr>
             ))}
             <tr className="tfoot-row">
+              {canCrud ? <td /> : null}
               <td>Total</td>
               <td colSpan={visibleColSpan - 3} />
               {visibleColumns.has("qty") && (
@@ -359,4 +588,145 @@ export default function ShipmentsPage({ filteredRows }) {
       </div>
     </section>
   );
+}
+
+function DeleteConfirmationDialog({ row, saving, message, onCancel, onConfirm }) {
+  const title = `Delete shipment ${row?.bookingNo || row?.recordId}?`;
+  return (
+    <div className="shipment-confirm">
+      <div className="shipment-confirm-backdrop" aria-hidden="true" />
+      <div
+        className="shipment-confirm-dialog"
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="shipment-confirm-title"
+      >
+        <div className="top-title" id="shipment-confirm-title">{title}</div>
+        <p className="shipment-confirm-copy">
+          This action will remove the shipment from the active list.
+        </p>
+        {message ? <div className="inline-error shipment-confirm-message">{message}</div> : null}
+        <div className="shipment-confirm-actions">
+          <button className="btn" type="button" onClick={onCancel} disabled={saving}>
+            Cancel
+          </button>
+          <button className="btn btn-danger" type="button" onClick={onConfirm} disabled={saving}>
+            Confirm Delete
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function ShipmentEditor({
+  mode,
+  form,
+  row,
+  titleId,
+  canViewAll,
+  saving,
+  onChange,
+  onCreate,
+  onUpdate,
+  onDelete,
+  onClose,
+}) {
+  const isCreate = mode === "create";
+  return (
+    <section className="shipment-editor" aria-label="Shipment editor">
+      <div className="admin-head">
+        <div>
+          <div className="top-title" id={titleId}>{isCreate ? "Add Shipment" : `Shipment Detail: ${row?.bookingNo || row?.recordId}`}</div>
+          <div className="chart-sub">{isCreate ? "Create a record owned by the current session" : "Review and update shipment fields"}</div>
+        </div>
+        <button className="btn" type="button" onClick={onClose}>Close</button>
+      </div>
+      <form className="shipment-form" onSubmit={isCreate ? onCreate : onUpdate}>
+        <ShipmentInput label="Date" value={form.date} onChange={(value) => onChange("date", value)} type="date" />
+        <ShipmentInput label="Booking No" value={form.bookingNo} onChange={(value) => onChange("bookingNo", value)} />
+        <ShipmentInput label="Job No" value={form.jobNo} onChange={(value) => onChange("jobNo", value)} />
+        <ShipmentInput label="Shipper" value={form.shipper} onChange={(value) => onChange("shipper", value)} />
+        <ShipmentInput label="Port" value={form.port} onChange={(value) => onChange("port", value)} />
+        <ShipmentInput label="Country" value={form.country} onChange={(value) => onChange("country", value)} />
+        <ShipmentInput label="Trade" value={form.trade} onChange={(value) => onChange("trade", value)} />
+        <ShipmentInput label="Carrier" value={form.carrier} onChange={(value) => onChange("carrier", value)} />
+        <ShipmentInput label="Sale Name" value={form.saleName} onChange={(value) => onChange("saleName", value)} />
+        <ShipmentInput label="Qty" value={form.qty} onChange={(value) => onChange("qty", value)} type="number" />
+        <ShipmentInput label="Unit" value={form.unit} onChange={(value) => onChange("unit", value)} />
+        <ShipmentInput label="TEU" value={form.teu} onChange={(value) => onChange("teu", value)} type="number" />
+        <label className="form-group">
+          <span className="form-label">Status</span>
+          <select className="form-select" value={form.status} onChange={(event) => onChange("status", event.target.value)}>
+            {STATUS_OPTIONS.map((status) => (
+              <option key={status} value={status}>{status}</option>
+            ))}
+          </select>
+        </label>
+        {canViewAll ? (
+          <>
+            <ShipmentInput label="Owner user id" value={form.ownerUserId} onChange={(value) => onChange("ownerUserId", value)} />
+            <ShipmentInput label="Owner username" value={form.ownerUsername} onChange={(value) => onChange("ownerUsername", value)} />
+          </>
+        ) : null}
+        <div className="shipment-form-actions">
+          <button className="btn btn-primary" type="submit" disabled={saving || (!isCreate && !row?.recordId)}>
+            {isCreate ? "Create Shipment" : "Save Changes"}
+          </button>
+          {!isCreate ? (
+            <button className="btn btn-danger" type="button" disabled={saving || !row?.recordId} onClick={onDelete}>
+              Delete Shipment
+            </button>
+          ) : null}
+        </div>
+      </form>
+    </section>
+  );
+}
+
+function ShipmentInput({ label, value, onChange, type = "text" }) {
+  return (
+    <label className="form-group">
+      <span className="form-label">{label}</span>
+      <input
+        className="form-input"
+        type={type}
+        value={value}
+        onChange={(event) => onChange(event.target.value)}
+      />
+    </label>
+  );
+}
+
+function rowToForm(row) {
+  return {
+    date: row.date ? formatDate(row.date) : "",
+    bookingNo: row.bookingNo || "",
+    jobNo: row.jobNo || "",
+    shipper: row.shipper || "",
+    port: row.port || "",
+    country: row.country || "",
+    trade: row.trade || "",
+    carrier: row.carrier || "",
+    saleName: row.saleName || "",
+    qty: row.qty ?? "",
+    unit: row.unit || "",
+    teu: row.teu ?? "",
+    status: row.status || "Booked",
+    ownerUserId: row.ownerUserId || "",
+    ownerUsername: row.ownerUsername || "",
+  };
+}
+
+function normalizePayload(form, includeOwner) {
+  const payload = {
+    ...form,
+    qty: Number(form.qty) || 0,
+    teu: Number(form.teu) || 0,
+  };
+  if (!includeOwner) {
+    delete payload.ownerUserId;
+    delete payload.ownerUsername;
+  }
+  return payload;
 }

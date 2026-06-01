@@ -191,6 +191,11 @@ export default function DashboardPage({
             description="Search, sort, and export individual shipment detail rows"
             to="/shipments"
           />
+          <NavCard
+            title="Operational Tracking"
+            description="Milestones, delayed shipments, stale updates, and exception queue"
+            to="/tracking"
+          />
         </div>
       </div>
     </>

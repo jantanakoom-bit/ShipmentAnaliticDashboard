@@ -1,0 +1,450 @@
+<!doctype html>
+<html lang="th">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Update Docs Plan - Shipment Analytics Dashboard</title>
+    <style>
+      :root {
+        color-scheme: light;
+        --bg: #f6f7f9;
+        --surface: #ffffff;
+        --text: #1f2937;
+        --muted: #667085;
+        --heading: #111827;
+        --line: #d9dee7;
+        --soft: #eef2f7;
+        --accent: #2563eb;
+        --accent-soft: #dbeafe;
+        --warn: #92400e;
+        --warn-soft: #fef3c7;
+        --ok: #166534;
+        --ok-soft: #dcfce7;
+      }
+      body {
+        margin: 0;
+        background: var(--bg);
+        color: var(--text);
+        font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+        line-height: 1.45;
+        font-size: 14px;
+      }
+      .page {
+        max-width: 1060px;
+        margin: 0 auto;
+        padding: 20px 16px 32px;
+      }
+      .hero,
+      section,
+      .toc {
+        background: var(--surface);
+        border: 1px solid var(--line);
+        border-radius: 8px;
+        padding: 14px;
+        margin-bottom: 12px;
+        box-shadow: 0 1px 2px rgba(15, 23, 42, 0.04);
+      }
+      .eyebrow {
+        margin: 0 0 6px;
+        color: var(--accent);
+        font-weight: 700;
+        font-size: 11px;
+        text-transform: uppercase;
+        letter-spacing: 0.04em;
+      }
+      h1,
+      h2,
+      h3 {
+        color: var(--heading);
+        line-height: 1.25;
+      }
+      h1 {
+        margin: 0 0 6px;
+        font-size: 24px;
+      }
+      h2 {
+        margin: 0 0 8px;
+        font-size: 18px;
+      }
+      h3 {
+        margin: 12px 0 6px;
+        font-size: 15px;
+      }
+      p {
+        margin: 0 0 8px;
+      }
+      .lede {
+        color: var(--muted);
+        font-size: 14px;
+        max-width: 820px;
+      }
+      .toc ul {
+        margin: 6px 0 0;
+        padding-left: 18px;
+      }
+      .callout {
+        border-left: 4px solid var(--accent);
+        background: var(--accent-soft);
+        padding: 8px 10px;
+        border-radius: 6px;
+        margin: 10px 0;
+      }
+      .warning {
+        border-left-color: var(--warn);
+        background: var(--warn-soft);
+      }
+      .checklist {
+        border-left-color: var(--ok);
+        background: var(--ok-soft);
+      }
+      table {
+        border-collapse: collapse;
+        width: 100%;
+        margin: 10px 0;
+        background: var(--surface);
+      }
+      th,
+      td {
+        border: 1px solid var(--line);
+        padding: 7px 8px;
+        vertical-align: top;
+      }
+      th {
+        background: var(--soft);
+        text-align: left;
+        color: var(--heading);
+      }
+      code,
+      pre {
+        font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+        font-size: 0.86em;
+      }
+      code {
+        background: var(--soft);
+        padding: 1px 4px;
+        border-radius: 5px;
+      }
+      pre {
+        background: #111827;
+        color: #f9fafb;
+        padding: 10px;
+        border-radius: 6px;
+        overflow-x: auto;
+      }
+      ul,
+      ol {
+        margin-top: 6px;
+      }
+      li {
+        margin: 3px 0;
+      }
+    </style>
+  </head>
+  <body>
+    <main class="page">
+      <header class="hero">
+        <p class="eyebrow">Docs Planning</p>
+        <h1>Update Docs Plan - Shipment Analytics Dashboard</h1>
+        <p class="lede">
+          BLUF: update docs after the RBAC Sales CRUD branch is stabilized. The committed docs
+          already cover API and Google Sheet schema; the current dirty diff adds shipment detail
+          modal and delete confirmation behavior that should be documented before merge.
+        </p>
+      </header>
+
+      <nav class="toc">
+        <h2>Contents</h2>
+        <ul>
+          <li><a href="#git-evidence">Git Evidence</a></li>
+          <li><a href="#prd">Condensed PRD</a></li>
+          <li><a href="#docs-map">Docs Update Map</a></li>
+          <li><a href="#roadmap">Roadmap</a></li>
+          <li><a href="#verification">Verification</a></li>
+          <li><a href="#next-actions">Next 3 Actions</a></li>
+        </ul>
+      </nav>
+
+      <section id="git-evidence">
+        <h2>Git Evidence</h2>
+        <table>
+          <thead>
+            <tr>
+              <th>Source</th>
+              <th>Observed State</th>
+              <th>Docs Impact</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td><code>git branch --show-current</code></td>
+              <td><code>feature/rbac-sales-crud-google-sheet-schema</code></td>
+              <td>
+                Docs should frame the work as RBAC Sales CRUD plus Google Sheet schema support.
+              </td>
+            </tr>
+            <tr>
+              <td><code>git log --oneline -8</code></td>
+              <td>
+                Recent commits include RBAC data access, shipment CRUD UI, schema tests, RBAC
+                workflows, PR notes, and legacy shipment visibility fix.
+              </td>
+              <td>
+                Core docs already need to describe role behavior, schema columns, API CRUD, and test
+                evidence.
+              </td>
+            </tr>
+            <tr>
+              <td><code>git status --short</code></td>
+              <td>
+                Dirty files: <code>AGENTS.md</code>, <code>src/pages/ShipmentsPage.jsx</code>,
+                <code>src/pages/pages.test.jsx</code>, <code>src/styles.css</code>,
+                <code>tests/e2e/shipments.spec.js</code>.
+              </td>
+              <td>
+                Plan must avoid overwriting existing work and document only behavior proven by
+                current diff.
+              </td>
+            </tr>
+            <tr>
+              <td><code>git diff --stat</code></td>
+              <td>
+                Shipment page/style/tests changed: detail modal, delete confirmation, confirmation
+                cancel path, delete failure visibility.
+              </td>
+              <td>
+                Testing and user workflow docs should include the modal delete-confirmation
+                regression.
+              </td>
+            </tr>
+          </tbody>
+        </table>
+        <div class="callout warning">
+          Do not update docs as if the dirty shipment UI diff is already merged until tests pass.
+          Mark it as pending verification if documenting before commit.
+        </div>
+      </section>
+
+      <section id="prd">
+        <h2>Condensed PRD</h2>
+        <p>
+          <strong>Problem:</strong> Documentation needs to match the RBAC Sales CRUD implementation
+          and the latest shipment modal/delete workflow before the branch is reviewed or merged.
+        </p>
+        <p>
+          <strong>MVP Goal:</strong> A reviewer can understand schema changes, role permissions,
+          shipment CRUD API behavior, UI workflow, verification commands, and operational risks
+          without reading the whole diff.
+        </p>
+        <table>
+          <thead>
+            <tr>
+              <th>ID</th>
+              <th>Requirement</th>
+              <th>Acceptance Criteria</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td>DOC-01</td>
+              <td>Sync user-facing workflow docs for Shipments CRUD.</td>
+              <td>
+                Given a reviewer opens docs, when they check shipment delete behavior, then they see
+                detail modal, confirmation dialog, cancel path, confirm path, and soft-delete
+                semantics.
+              </td>
+            </tr>
+            <tr>
+              <td>DOC-02</td>
+              <td>Keep API and data-contract docs aligned with RBAC schema.</td>
+              <td>
+                Given existing Google Sheets rows, when owner fields are blank, then docs explain
+                normal user visibility and moderator/admin review behavior.
+              </td>
+            </tr>
+            <tr>
+              <td>DOC-03</td>
+              <td>Update verification docs from actual tests.</td>
+              <td>
+                Given the branch is ready for PR, when docs list test evidence, then commands match
+                package scripts and current Playwright/Vitest coverage.
+              </td>
+            </tr>
+          </tbody>
+        </table>
+        <p>
+          <strong>Non-goals:</strong> Do not rewrite architecture from scratch, do not change Google
+          Sheet schema names, and do not document unimplemented notification/assignment workflows.
+        </p>
+      </section>
+
+      <section id="docs-map">
+        <h2>Docs Update Map</h2>
+        <table>
+          <thead>
+            <tr>
+              <th>File</th>
+              <th>Action</th>
+              <th>Priority</th>
+              <th>Reason</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td><code>README.md</code></td>
+              <td>
+                Add a short Shipments CRUD workflow note: add inline, view/edit in detail modal,
+                delete requires confirmation, delete is soft delete.
+              </td>
+              <td>High</td>
+              <td>
+                README is the first reviewer entry point and already has RBAC Sales CRUD summary.
+              </td>
+            </tr>
+            <tr>
+              <td><code>docs/testing.md</code></td>
+              <td>
+                Expand Shipments coverage to include create/update/delete, detail modal, delete
+                confirmation cancel/confirm, and failure visibility.
+              </td>
+              <td>High</td>
+              <td>Dirty tests prove this is now a covered workflow.</td>
+            </tr>
+            <tr>
+              <td><code>docs/rbac-sales-crud-pr-notes.md</code></td>
+              <td>
+                Update PR notes with current dirty-diff evidence after verification: modal detail
+                view, delete confirmation, legacy-row visibility fix.
+              </td>
+              <td>High</td>
+              <td>This is the branch-specific review document.</td>
+            </tr>
+            <tr>
+              <td><code>docs/api-reference.md</code></td>
+              <td>
+                Keep mostly unchanged; optionally clarify that
+                <code>DELETE /api/shipments/:id</code> is triggered only after UI confirmation.
+              </td>
+              <td>Medium</td>
+              <td>API contract is already accurate; UI confirmation is not an API rule.</td>
+            </tr>
+            <tr>
+              <td><code>docs/architecture.md</code></td>
+              <td>
+                Add one sentence to <code>ShipmentsPage.jsx</code> description: searchable table
+                plus inline create form and modal detail/edit/delete flow.
+              </td>
+              <td>Medium</td>
+              <td>
+                Current architecture doc says searchable table only, which is stale after CRUD UI.
+              </td>
+            </tr>
+            <tr>
+              <td><code>docs/data-contract.md</code></td>
+              <td>
+                No major change unless implementation changed schema behavior; verify against
+                <code>shipmentStore.js</code> before touching.
+              </td>
+              <td>Low</td>
+              <td>Schema columns and compatibility rules already match the branch commits.</td>
+            </tr>
+            <tr>
+              <td><code>docs/README.md</code></td>
+              <td>
+                Add <code>rbac-sales-crud-pr-notes.md</code> as an active branch note if this plan
+                is kept.
+              </td>
+              <td>Low</td>
+              <td>Current docs index does not list the branch PR notes.</td>
+            </tr>
+          </tbody>
+        </table>
+      </section>
+
+      <section id="roadmap">
+        <h2>Roadmap</h2>
+        <table>
+          <thead>
+            <tr>
+              <th>Phase</th>
+              <th>Milestone</th>
+              <th>Tasks</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td>Phase 0 - Evidence Lock</td>
+              <td>Git-backed docs scope is confirmed.</td>
+              <td>
+                Review dirty diff, recent commits, README, API reference, data contract, testing
+                docs, and PR notes.
+              </td>
+            </tr>
+            <tr>
+              <td>Phase 1 - Docs Sync</td>
+              <td>Docs match implemented RBAC Sales CRUD behavior.</td>
+              <td>
+                Patch README, testing, architecture, and PR notes. Touch API/data-contract only
+                where a real mismatch exists.
+              </td>
+            </tr>
+            <tr>
+              <td>Phase 2 - Verification</td>
+              <td>Docs update is ready for PR.</td>
+              <td>
+                Run targeted shipment page tests, targeted Playwright shipment spec, then full gate
+                if branch is merge-ready.
+              </td>
+            </tr>
+          </tbody>
+        </table>
+      </section>
+
+      <section id="verification">
+        <h2>Verification</h2>
+        <p>Use focused checks first because the active diff is shipment UI/test behavior.</p>
+        <pre>
+npm run test:unit -- src/pages/pages.test.jsx
+npm run test:e2e -- tests/e2e/shipments.spec.js</pre
+        >
+        <p>Before merge, run the full project gate:</p>
+        <pre>
+npm test
+npm run build
+npm run test:e2e</pre
+        >
+        <div class="callout checklist">
+          Docs are complete when changed docs mention exact behavior, exact files/tests prove it,
+          and no doc claims exceed the verified implementation.
+        </div>
+        <div class="callout checklist">
+          Execution note: focused checks ran locally on 2026-06-01.
+          <code>npm run test:unit -- src/pages/pages.test.jsx</code> passed with 6 files and 32
+          tests. <code>npm run test:e2e -- tests/e2e/shipments.spec.js</code> passed with 3
+          Playwright tests.
+        </div>
+      </section>
+
+      <section id="next-actions">
+        <h2>Next 3 Actions</h2>
+        <ol>
+          <li>
+            <strong>Patch high-priority docs</strong> - update <code>README.md</code>,
+            <code>docs/testing.md</code>, and <code>docs/rbac-sales-crud-pr-notes.md</code> from the
+            current shipment modal/delete diff. Effort: S. Start with the README RBAC Sales CRUD
+            section.
+          </li>
+          <li>
+            <strong>Patch stale architecture wording</strong> - update
+            <code>docs/architecture.md</code> so <code>ShipmentsPage.jsx</code> is no longer
+            described as table-only. Effort: S. Start with the frontend structure table.
+          </li>
+          <li>
+            <strong>Verify and finalize evidence</strong> - run the focused unit/E2E commands, then
+            record passing commands in PR notes. Effort: M. Start with
+            <code>npm run test:unit -- src/pages/pages.test.jsx</code>.
+          </li>
+        </ol>
+      </section>
+    </main>
+  </body>
+</html>

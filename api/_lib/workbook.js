@@ -1,17 +1,24 @@
 import { getSheetsClient, requiredEnv } from "./googleSheets.js";
+import { getWriteCacheBuster } from "./shipmentWriteCache.js";
 
 const DETAIL_SHEET = process.env.DATA_SHEET_NAME || "Detail Data";
 const CACHE_MS = 45 * 1000;
 
 let dataCache = null;
 let cachedAt = 0;
+let cachedWriteCacheBuster = -1;
 
 export function resolveWorkbookPath() {
   return `Google Sheets: ${DETAIL_SHEET}`;
 }
 
 export async function loadWorkbookData() {
-  if (dataCache && Date.now() - cachedAt < CACHE_MS) {
+  const currentWriteCacheBuster = getWriteCacheBuster();
+  if (
+    dataCache &&
+    cachedWriteCacheBuster === currentWriteCacheBuster &&
+    Date.now() - cachedAt < CACHE_MS
+  ) {
     return dataCache;
   }
 
@@ -30,7 +37,7 @@ export async function loadWorkbookData() {
   const detailRows = rows.slice(1).map((row) =>
     Object.fromEntries(headers.map((header, index) => [header, row[index] ?? ""]))
   );
-  const detailData = detailRows.map(normalizeRow);
+  const detailData = detailRows.map(normalizeWorkbookRow);
   const columns = headers;
 
   dataCache = {
@@ -47,6 +54,7 @@ export async function loadWorkbookData() {
     },
   };
   cachedAt = Date.now();
+  cachedWriteCacheBuster = currentWriteCacheBuster;
 
   return dataCache;
 }
@@ -55,6 +63,19 @@ export function serializeWorkbookData(data) {
   return {
     ...data,
     detailData: data.detailData.map(serializeRow),
+  };
+}
+
+export function buildWorkbookResponse(detailData, metadata = {}) {
+  const rows = detailData.filter((row) => !row.isDeleted);
+  return {
+    detailData: rows,
+    metadata: {
+      ...metadata,
+      shipments: rows.length,
+      dateRange: getDateRange(rows),
+      filters: buildFilterOptions(rows),
+    },
   };
 }
 
@@ -67,6 +88,7 @@ export function filterRows(rows, query) {
     if (query.carrier && query.carrier !== "All" && row.carrier !== query.carrier) return false;
     if (query.shipper && query.shipper !== "All" && row.shipper !== query.shipper) return false;
     if (query.status && query.status !== "All" && row.status !== query.status) return false;
+    if (query.sales && query.sales !== "All" && row.saleName !== query.sales) return false;
     return true;
   });
 }
@@ -112,13 +134,14 @@ export function clampNumber(value, min, max, fallback) {
   return Math.min(max, Math.max(min, Math.trunc(num)));
 }
 
-function normalizeRow(row) {
+export function normalizeWorkbookRow(row) {
   const date = toExcelDate(row.Date);
   const monthNumber = date ? date.getUTCMonth() + 1 : toNumber(row.MONTH);
   const year = date ? date.getUTCFullYear() : null;
   const quarter = getQuarter(monthNumber);
   const destination = text(row.Destination ?? row.PORT, "Unknown");
   const pol = text(row.POL, "Unknown");
+  const status = text(row.Status, "Unspecified");
 
   return {
     date,
@@ -141,11 +164,32 @@ function normalizeRow(row) {
     qty: toNumber(row.Qty),
     unit: text(row.Unit, "Unknown"),
     teu: toNumber(row.TEU),
-    status: text(row.Status, "Unspecified"),
+    status,
     saleName: text(row["Sale Name"], "Unknown"),
     trade: text(row.TRADE, "Unknown"),
     carrier: text(row.CARRIER, "Unknown"),
     route: `${pol} -> ${destination}`,
+    shipmentId: text(firstValue(row, ["shipment_id", "Shipment ID", "Shipment Id", "shipmentId"])),
+    containerNo: text(firstValue(row, ["container_no", "Container No", "Container No.", "containerNo"])),
+    etd: toExcelDate(firstValue(row, ["ETD", "etd"])),
+    eta: toExcelDate(firstValue(row, ["ETA", "eta"])),
+    atd: toExcelDate(firstValue(row, ["ATD", "atd"])),
+    ata: toExcelDate(firstValue(row, ["ATA", "ata"])),
+    currentMilestone: text(firstValue(row, ["current_milestone", "Current Milestone", "currentMilestone"]), status),
+    lastEventTime: toExcelDate(firstValue(row, ["last_event_time", "Last Event Time", "lastEventTime"])),
+    delayDays: toNumber(firstValue(row, ["delay_days", "Delay Days", "delayDays"])),
+    delayReason: text(firstValue(row, ["delay_reason", "Delay Reason", "delayReason"])),
+    onTimeFlag: text(firstValue(row, ["on_time_flag", "On Time Flag", "onTimeFlag"])),
+    recordId: text(firstValue(row, ["record_id", "Record ID", "recordId"])) || text(firstValue(row, ["shipment_id", "Shipment ID", "Shipment Id", "shipmentId"])),
+    ownerUserId: text(firstValue(row, ["owner_user_id", "Owner User ID", "ownerUserId"])),
+    ownerUsername: text(firstValue(row, ["owner_username", "Owner Username", "ownerUsername"])),
+    createdBy: text(firstValue(row, ["created_by", "Created By", "createdBy"])),
+    updatedBy: text(firstValue(row, ["updated_by", "Updated By", "updatedBy"])),
+    createdAt: text(firstValue(row, ["created_at", "Created At", "createdAt"])),
+    updatedAt: text(firstValue(row, ["updated_at", "Updated At", "updatedAt"])),
+    isDeleted: toBoolean(firstValue(row, ["is_deleted", "Is Deleted", "isDeleted"])),
+    deletedAt: text(firstValue(row, ["deleted_at", "Deleted At", "deletedAt"])),
+    deletedBy: text(firstValue(row, ["deleted_by", "Deleted By", "deletedBy"])),
   };
 }
 
@@ -264,9 +308,22 @@ function text(value, fallback = "") {
   return `${value ?? ""}`.trim() || fallback;
 }
 
+function firstValue(row, keys) {
+  for (const key of keys) {
+    if (row[key] !== undefined && row[key] !== null && `${row[key]}`.trim() !== "") {
+      return row[key];
+    }
+  }
+  return "";
+}
+
 function toNumber(value) {
   const num = Number(value);
   return Number.isFinite(num) ? num : 0;
+}
+
+function toBoolean(value) {
+  return ["true", "yes", "1"].includes(`${value ?? ""}`.trim().toLowerCase());
 }
 
 function toExcelDate(value) {
