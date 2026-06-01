@@ -2252,6 +2252,52 @@ tbody td {
   accent-color: var(--accent);
 }
 
+.shipment-detail-table {
+  table-layout: fixed;
+  min-width: 1120px;
+}
+
+.shipment-detail-table th,
+.shipment-detail-table td {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.shipment-col-actions {
+  width: 72px;
+}
+
+.shipment-col-date {
+  width: 88px;
+}
+
+.shipment-col-bookingNo,
+.shipment-col-jobNo {
+  width: 104px;
+}
+
+.shipment-col-shipper {
+  width: 150px;
+}
+
+.shipment-col-port,
+.shipment-col-country,
+.shipment-col-trade,
+.shipment-col-carrier {
+  width: 110px;
+}
+
+.shipment-col-saleName {
+  width: 100px;
+}
+
+.shipment-col-qty,
+.shipment-col-unit,
+.shipment-col-teu {
+  width: 64px;
+}
+
 /* Pagination */
 .pagination {
   display: flex;

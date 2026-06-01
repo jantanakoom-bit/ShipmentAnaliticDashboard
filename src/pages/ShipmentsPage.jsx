@@ -457,7 +457,13 @@ export default function ShipmentsPage({ filteredRows, currentUser, onDataRefresh
       ) : null}
 
       <div className="table-scroll">
-        <table>
+        <table className="shipment-detail-table">
+          <colgroup>
+            {canCrud ? <col className="shipment-col-actions" /> : null}
+            {COLUMNS.filter((col) => visibleColumns.has(col.key)).map((col) => (
+              <col className={`shipment-col-${col.key}`} key={col.key} />
+            ))}
+          </colgroup>
           <thead>
             <tr>
               {canCrud ? <th>Actions</th> : null}
