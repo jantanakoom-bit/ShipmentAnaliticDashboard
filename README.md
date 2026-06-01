@@ -43,6 +43,7 @@ API endpoints:
 - `DELETE /api/shipments/:id`
 - `GET /api/tracking?milestone=In%20Transit`
 - `GET /api/tracking/exceptions?exceptionType=delayed`
+- `PATCH /api/tracking/exceptions/:id`
 - `POST /api/chat`
 
 ## Login Users
@@ -94,7 +95,7 @@ See `docs/deployment.md` for local deployment, environment variable, and smoke-t
   - shipment and TEU trend by selected time grain
   - top trade, carrier, destination, shipper, route, and status breakdown
   - shipment detail drill-down table
-  - read-only operational tracking page with milestone summary and exception queue
+  - operational tracking page with milestone summary, exception queue, and in-app follow-up actions
 
 ## Optional Operational Tracking Columns
 
@@ -105,6 +106,16 @@ shipment_id,container_no,ETD,ETA,ATD,ATA,current_milestone,last_event_time,delay
 ```
 
 The tracking page classifies delayed shipments, stale updates, missing operational data, and invalid ETD/ETA or ATD/ATA date sequences.
+
+## Optional Exception Workflow Columns
+
+Add these headers to `Detail Data` when the tracking exception queue should be managed inside the app:
+
+```text
+exception_status,exception_priority,exception_owner_user_id,exception_owner_username,exception_next_action,exception_due_at,exception_note,exception_updated_by,exception_updated_at,exception_resolved_by,exception_resolved_at
+```
+
+Blank exception status defaults to `open`; supported statuses are `open`, `in_progress`, `waiting`, and `resolved`. Supported priorities are `low`, `normal`, `high`, and `urgent`.
 
 ## Design Reference
 
@@ -118,7 +129,7 @@ The tracking page classifies delayed shipments, stale updates, missing operation
 
 - Standardize `Status` values in the source workbook
 - Add event-level movement history once source data is available
-- Add owner/action workflow and notifications for exception follow-up
+- Add notifications for exception follow-up
 - Extend AI assistant with operational tracking tools
 
 ## RBAC Sales CRUD

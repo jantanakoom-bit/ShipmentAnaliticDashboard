@@ -239,11 +239,11 @@ Return aggregate metrics for filtered shipment rows.
 
 ### GET /api/tracking
 
-Return read-only operational tracking rows, milestone counts, and exception summary for the selected filters.
+Return operational tracking rows, milestone counts, exception summary, and exception action workflow state for the selected filters.
 
 **Auth:** Required (session cookie).
 
-**Optional query params:** `year`, `quarter`, `month`, `trade`, `carrier`, `shipper`, `status`, `milestone`, `exceptionType`, `sales`.
+**Optional query params:** `year`, `quarter`, `month`, `trade`, `carrier`, `shipper`, `status`, `milestone`, `exceptionType`, `sales`, `actionStatus`, `priority`, `actionOwner`, `dueState`.
 
 **Response (200):**
 ```json
@@ -254,7 +254,10 @@ Return read-only operational tracking rows, milestone counts, and exception summ
     "staleShipments": 5,
     "missingDataShipments": 2,
     "invalidSequenceShipments": 1,
-    "exceptionShipments": 8
+    "exceptionShipments": 8,
+    "openActionShipments": 6,
+    "unassignedActionShipments": 2,
+    "overdueActionShipments": 1
   },
   "milestoneSummary": [
     { "name": "In Transit", "count": 18 }
@@ -267,7 +270,12 @@ Return read-only operational tracking rows, milestone counts, and exception summ
       "currentMilestone": "In Transit",
       "eta": "2026-05-20T00:00:00.000Z",
       "lastEventTime": "2026-05-15T09:00:00.000Z",
-      "exceptionTypes": ["delayed"]
+      "exceptionTypes": ["delayed"],
+      "exceptionStatus": "open",
+      "exceptionPriority": "high",
+      "exceptionOwnerUsername": "tester",
+      "exceptionNextAction": "Call carrier",
+      "exceptionDueAt": "2026-06-03"
     }
   ]
 }
@@ -295,6 +303,42 @@ Return only tracking rows that require operational review.
   "generatedAt": "2026-06-01T00:00:00.000Z"
 }
 ```
+
+### PATCH /api/tracking/exceptions/:id
+
+Update exception follow-up fields for one accessible shipment row. The `:id` value is the row `recordId`.
+
+**Auth:** Required (session cookie). `user` can update owned rows only; `moderator` and `admin` can update all visible rows.
+
+**Request:**
+```json
+{
+  "actionStatus": "in_progress",
+  "priority": "high",
+  "ownerUserId": "user-1",
+  "ownerUsername": "tester",
+  "nextAction": "Call carrier",
+  "dueAt": "2026-06-03",
+  "note": "Waiting for ETA confirmation"
+}
+```
+
+**Response (200):**
+```json
+{
+  "row": {
+    "recordId": "rec-001",
+    "bookingNo": "BK001",
+    "exceptionStatus": "in_progress",
+    "exceptionPriority": "high",
+    "exceptionOwnerUsername": "tester",
+    "exceptionUpdatedBy": "user-1",
+    "exceptionUpdatedAt": "2026-06-01T00:00:00.000Z"
+  }
+}
+```
+
+Supported action statuses are `open`, `in_progress`, `waiting`, and `resolved`. Supported priorities are `low`, `normal`, `high`, and `urgent`. Audit fields are server-owned.
 
 ---
 

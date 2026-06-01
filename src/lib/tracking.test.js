@@ -37,6 +37,9 @@ describe("buildTrackingViewModel", () => {
       delayedShipments: 1,
       staleShipments: 1,
       exceptionShipments: 2,
+      openActionShipments: 2,
+      unassignedActionShipments: 2,
+      overdueActionShipments: 0,
     });
     expect(model.exceptions.map((row) => row.bookingNo)).toEqual(["BK-001", "BK-002"]);
     expect(model.milestoneSummary).toEqual([
@@ -55,5 +58,41 @@ describe("buildTrackingViewModel", () => {
 
     expect(filtered).toHaveLength(1);
     expect(filtered[0].bookingNo).toBe("BK-001");
+  });
+
+  test("summarizes and filters exception workflow fields", () => {
+    const model = buildTrackingViewModel([
+      {
+        ...rows[0],
+        bookingNo: "BK-OPEN",
+        exceptionStatus: "open",
+        exceptionPriority: "high",
+        exceptionOwnerUsername: "tester",
+        exceptionDueAt: "2026-05-31",
+      },
+      {
+        ...rows[1],
+        bookingNo: "BK-WAITING",
+        exceptionStatus: "waiting",
+        exceptionPriority: "normal",
+        exceptionOwnerUsername: "mint",
+        exceptionDueAt: "2026-06-03",
+      },
+    ], { now: NOW, staleDays: 7 });
+
+    expect(model.summary).toMatchObject({
+      exceptionShipments: 2,
+      openActionShipments: 2,
+      unassignedActionShipments: 0,
+      overdueActionShipments: 1,
+    });
+
+    const filtered = filterTrackingRows(model.rows, {
+      actionStatus: "open",
+      priority: "high",
+      actionOwner: "tester",
+      dueState: "overdue",
+    });
+    expect(filtered.map((row) => row.bookingNo)).toEqual(["BK-OPEN"]);
   });
 });

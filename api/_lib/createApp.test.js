@@ -34,6 +34,13 @@ const detailData = [
     ownerUserId: "user-1",
     ownerUsername: "tester",
     isDeleted: false,
+    exceptionStatus: "open",
+    exceptionPriority: "normal",
+    exceptionOwnerUserId: "",
+    exceptionOwnerUsername: "",
+    exceptionNextAction: "",
+    exceptionDueAt: "",
+    exceptionNote: "",
     containerNo: "CONT-001",
     eta: new Date("2024-01-20T00:00:00.000Z"),
     currentMilestone: "In Transit",
@@ -70,6 +77,13 @@ const detailData = [
     ownerUserId: "user-2",
     ownerUsername: "mint",
     isDeleted: false,
+    exceptionStatus: "open",
+    exceptionPriority: "normal",
+    exceptionOwnerUserId: "",
+    exceptionOwnerUsername: "",
+    exceptionNextAction: "",
+    exceptionDueAt: "",
+    exceptionNote: "",
     eta: new Date("2026-07-10T00:00:00.000Z"),
     currentMilestone: "Booked",
     lastEventTime: new Date("2026-06-01T00:00:00.000Z"),
@@ -158,12 +172,32 @@ function buildTestApp(overrides = {}) {
       return mutableRows[index];
     },
   };
+  const trackingStore = overrides.trackingStore || {
+    updateExceptionWorkflow: async (recordId, patch, { session }) => {
+      const index = mutableRows.findIndex((row) => row.recordId === recordId);
+      if (index === -1) {
+        const error = new Error("Shipment not found.");
+        error.status = 404;
+        throw error;
+      }
+      mutableRows[index] = {
+        ...mutableRows[index],
+        ...patch,
+        exceptionUpdatedBy: session.user.id,
+        exceptionUpdatedAt: "2026-06-01T00:00:00.000Z",
+        exceptionResolvedBy: patch.actionStatus === "resolved" ? session.user.id : "",
+        exceptionResolvedAt: patch.actionStatus === "resolved" ? "2026-06-01T00:00:00.000Z" : "",
+      };
+      return mutableRows[index];
+    },
+  };
 
   return createApp({
     rootDir: "/tmp/shipment-test",
     resolveWorkbookPath: () => "/tmp/shipment-test/Detail_Report_Format.xlsx",
     loadWorkbookData: () => ({ ...workbookData, detailData: mutableRows }),
     shipmentStore,
+    trackingStore,
     requireSession: async (req, res) => {
       if (req.headers.authorization === "Bearer test-user") {
         return { user: { id: "user-1", username: "tester", role: "user" } };
@@ -443,6 +477,45 @@ describe("createApp", () => {
 
     expect(exceptions.body.count).toBe(1);
     expect(exceptions.body.rows[0].shipmentId).toBe("SHP-001");
+  });
+
+  test("updates exception workflow for an accessible tracking row", async () => {
+    const response = await request(buildTestApp())
+      .patch("/api/tracking/exceptions/rec-001")
+      .set("Authorization", "Bearer test-user")
+      .send({
+        actionStatus: "in_progress",
+        priority: "high",
+        ownerUserId: "user-1",
+        ownerUsername: "tester",
+        nextAction: "Call carrier",
+        dueAt: "2026-06-03",
+        note: "Waiting for ETA confirmation",
+        exceptionUpdatedBy: "attacker",
+      })
+      .expect(200);
+
+    expect(response.body.row).toMatchObject({
+      recordId: "rec-001",
+      exceptionStatus: "in_progress",
+      exceptionPriority: "high",
+      exceptionOwnerUserId: "user-1",
+      exceptionOwnerUsername: "tester",
+      exceptionNextAction: "Call carrier",
+      exceptionDueAt: "2026-06-03",
+      exceptionNote: "Waiting for ETA confirmation",
+      exceptionUpdatedBy: "user-1",
+      exceptionUpdatedAt: "2026-06-01T00:00:00.000Z",
+    });
+    expect(response.body.row.exceptionUpdatedBy).not.toBe("attacker");
+  });
+
+  test("blocks exception workflow updates for inaccessible sales rows", async () => {
+    await request(buildTestApp())
+      .patch("/api/tracking/exceptions/rec-002")
+      .set("Authorization", "Bearer test-user")
+      .send({ actionStatus: "in_progress" })
+      .expect(403);
   });
 
   test("rejects unauthenticated AI chat requests", async () => {

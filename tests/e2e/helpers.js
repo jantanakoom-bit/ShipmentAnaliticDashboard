@@ -72,6 +72,13 @@ export function buildRows(count = 60) {
       delayDays: index % 3 === 0 ? 5 : 0,
       delayReason: index % 3 === 0 ? "Carrier delay" : "",
       onTimeFlag: index % 3 === 0 ? "No" : "Yes",
+      exceptionStatus: "open",
+      exceptionPriority: "normal",
+      exceptionOwnerUserId: "",
+      exceptionOwnerUsername: "",
+      exceptionNextAction: "",
+      exceptionDueAt: "",
+      exceptionNote: "",
     };
   });
 }
@@ -116,6 +123,33 @@ export async function mockDashboardApi(
         detailData: workbookRows.filter((row) => !row.isDeleted),
       },
     });
+  });
+
+  await page.route("**/api/tracking/exceptions/*", async (route) => {
+    const request = route.request();
+    const id = decodeURIComponent(new URL(request.url()).pathname.split("/").pop());
+    const index = workbookRows.findIndex((row) => row.recordId === id);
+    if (index === -1) {
+      await route.fulfill({ status: 404, json: { error: "Shipment not found." } });
+      return;
+    }
+    if (request.method() !== "PATCH") {
+      await route.fulfill({ status: 405, json: { error: "Method not allowed" } });
+      return;
+    }
+    const body = request.postDataJSON();
+    workbookRows[index] = {
+      ...workbookRows[index],
+      exceptionStatus: body.actionStatus,
+      exceptionPriority: body.priority,
+      exceptionOwnerUserId: body.ownerUserId,
+      exceptionOwnerUsername: body.ownerUsername,
+      exceptionNextAction: body.nextAction,
+      exceptionDueAt: body.dueAt,
+      exceptionNote: body.note,
+      exceptionUpdatedBy: user.id,
+    };
+    await route.fulfill({ status: 200, json: { row: workbookRows[index] } });
   });
 
   await page.route("**/api/shipments/*", async (route) => {
