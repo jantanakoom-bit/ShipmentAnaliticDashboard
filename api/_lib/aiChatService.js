@@ -15,6 +15,7 @@ export async function createAiChatResponse({
   messages,
   filters = {},
   pageContext = {},
+  conversationHistory = null,
   openAIClient,
   loadWorkbookData = defaultLoadWorkbookData,
   model = process.env.OPENAI_MODEL || DEFAULT_MODEL,
@@ -25,17 +26,30 @@ export async function createAiChatResponse({
   const normalizedMessages = normalizeMessages(messages, maxMessages);
   const client = openAIClient || getDefaultOpenAIClient();
   const runTool = createChatToolRunner({ loadWorkbookData, baseFilters: filters, maxRows });
-  const input = buildInitialInput(normalizedMessages, filters, pageContext);
+  const input = buildInitialInput(normalizedMessages, filters, pageContext, conversationHistory);
   const toolsUsed = [];
   let rowsMatched = null;
   let rowLimitApplied = false;
 
-  let response = await client.responses.create({
+  const createParams = {
     model,
     instructions: AI_CHAT_INSTRUCTIONS,
     input,
     tools: AI_CHAT_TOOL_DEFINITIONS,
-  });
+  };
+
+  if (conversationHistory?.previousResponseId) {
+    createParams.previous_response_id = conversationHistory.previousResponseId;
+  }
+
+  let response;
+  try {
+    response = await client.responses.create(createParams);
+  } catch {
+    // If previous_response_id is rejected (expired), retry without it
+    delete createParams.previous_response_id;
+    response = await client.responses.create(createParams);
+  }
 
   for (let round = 0; round < MAX_TOOL_ROUNDS; round += 1) {
     const calls = getFunctionCalls(response);
@@ -49,6 +63,7 @@ export async function createAiChatResponse({
           rowLimitApplied,
         },
         requestId,
+        previousResponseId: response.id,
       };
     }
 
@@ -135,20 +150,41 @@ function getDefaultOpenAIClient() {
   return defaultOpenAIClient;
 }
 
-function buildInitialInput(messages, filters, pageContext) {
-  return [
-    {
+function buildInitialInput(messages, filters, pageContext, conversationHistory) {
+  const parts = [];
+
+  parts.push({
+    role: "developer",
+    content: `Dashboard context: ${JSON.stringify({
+      filters: normalizeFilterSnapshot(filters),
+      pageContext: sanitizePageContext(pageContext),
+    })}`,
+  });
+
+  if (conversationHistory?.summary) {
+    parts.push({
       role: "developer",
-      content: `Dashboard context: ${JSON.stringify({
-        filters: normalizeFilterSnapshot(filters),
-        pageContext: sanitizePageContext(pageContext),
-      })}`,
-    },
-    ...messages.map((message) => ({
+      content: `Previous conversation summary:\n${conversationHistory.summary}`,
+    });
+  }
+
+  if (conversationHistory?.recentMessages?.length) {
+    for (const msg of conversationHistory.recentMessages) {
+      parts.push({
+        role: msg.role,
+        content: msg.content,
+      });
+    }
+  }
+
+  for (const message of messages) {
+    parts.push({
       role: message.role,
       content: message.content,
-    })),
-  ];
+    });
+  }
+
+  return parts;
 }
 
 function sanitizePageContext(pageContext = {}) {

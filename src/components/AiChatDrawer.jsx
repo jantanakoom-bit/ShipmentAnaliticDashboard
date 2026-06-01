@@ -3,21 +3,41 @@ import { sendAiChatMessage } from "../lib/aiChat";
 
 const MAX_VISIBLE_MESSAGES = 12;
 const MAX_INPUT_LENGTH = 4000;
+const CONVERSATION_STORAGE_KEY = "aiChatConversationId";
 const MarkdownMessage = lazy(() => import("./MarkdownMessage"));
+
+const WELCOME_MESSAGE = {
+  role: "assistant",
+  content: "Ask about TEU, carriers, shippers, routes, status, or the current dashboard filters.",
+};
 
 export default function AiChatDrawer({ filters, pageContext }) {
   const [open, setOpen] = useState(false);
   const [input, setInput] = useState("");
-  const [messages, setMessages] = useState([
-    {
-      role: "assistant",
-      content: "Ask about TEU, carriers, shippers, routes, status, or the current dashboard filters.",
-    },
-  ]);
+  const [messages, setMessages] = useState([WELCOME_MESSAGE]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
   const [dataUsed, setDataUsed] = useState(null);
+  const [conversationId, setConversationId] = useState(() => {
+    try {
+      return localStorage.getItem(CONVERSATION_STORAGE_KEY) || null;
+    } catch {
+      return null;
+    }
+  });
   const messagesRef = useRef(null);
+
+  useEffect(() => {
+    try {
+      if (conversationId) {
+        localStorage.setItem(CONVERSATION_STORAGE_KEY, conversationId);
+      } else {
+        localStorage.removeItem(CONVERSATION_STORAGE_KEY);
+      }
+    } catch {
+      // localStorage unavailable — no-op
+    }
+  }, [conversationId]);
 
   const remainingChars = MAX_INPUT_LENGTH - input.length;
   const canSubmit = input.trim().length > 0 && input.length <= MAX_INPUT_LENGTH && !loading;
@@ -56,14 +76,25 @@ export default function AiChatDrawer({ filters, pageContext }) {
         messages: nextMessages.filter((message) => message.role === "user" || message.role === "assistant"),
         filters,
         pageContext,
+        conversationId,
       });
       setMessages((current) => [...current, { role: "assistant", content: response.answer }].slice(-MAX_VISIBLE_MESSAGES));
       setDataUsed(response.dataUsed || null);
+      if (response.conversationId) {
+        setConversationId(response.conversationId);
+      }
     } catch (submitError) {
       setError(submitError.message || "Unable to generate AI response");
     } finally {
       setLoading(false);
     }
+  }
+
+  function handleNewChat() {
+    setConversationId(null);
+    setMessages([WELCOME_MESSAGE]);
+    setDataUsed(null);
+    setError("");
   }
 
   function handleKeyDown(event) {
@@ -92,9 +123,14 @@ export default function AiChatDrawer({ filters, pageContext }) {
               <div className="ai-chat-title">AI Assistant</div>
               <div className="ai-chat-sub">Shipment analytics</div>
             </div>
-            <button type="button" className="ai-chat-close" onClick={() => setOpen(false)} aria-label="Close AI assistant">
-              x
-            </button>
+            <div className="ai-chat-head-actions">
+              <button type="button" className="ai-chat-new" onClick={handleNewChat} aria-label="Start new conversation">
+                + New
+              </button>
+              <button type="button" className="ai-chat-close" onClick={() => setOpen(false)} aria-label="Close AI assistant">
+                x
+              </button>
+            </div>
           </div>
 
           <div ref={messagesRef} className="ai-chat-messages" role="log" aria-live="polite">

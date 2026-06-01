@@ -17,6 +17,8 @@ test("AI chat drawer sends dashboard context and renders the response", async ({
           rowLimitApplied: false,
         },
         requestId: "req_e2e",
+        conversationId: "conv_e2e_test",
+        previousResponseId: "resp_e2e_test",
       },
     });
   });
@@ -37,6 +39,65 @@ test("AI chat drawer sends dashboard context and renders the response", async ({
   expect(chatRequest.filters.years).toContain("2024");
   expect(chatRequest.filters.carrier).toContain("Carrier A");
   expect(chatRequest.pageContext).toMatchObject({ route: "/", recordCount: 60 });
+});
+
+test("AI chat drawer sends conversationId in follow-up requests", async ({ page }) => {
+  await mockDashboardApi(page);
+
+  const requests = [];
+  await page.route("**/api/chat", async (route) => {
+    const body = route.request().postDataJSON();
+    requests.push(body);
+    await route.fulfill({
+      status: 200,
+      json: {
+        answer: "Here is the data you requested.",
+        dataUsed: { tools: ["get_shipment_summary"], rowsMatched: 10, rowLimitApplied: false },
+        requestId: "req_e2e_followup",
+        conversationId: body.conversationId || "conv_e2e_fallback",
+      },
+    });
+  });
+
+  await login(page);
+  await page.getByRole("button", { name: "AI" }).click();
+
+  await page.getByPlaceholder("Ask about selected shipment data...").fill("First question");
+  await page.getByRole("button", { name: "Send" }).click();
+  await expect(page.getByText("Here is the data you requested.")).toBeVisible();
+
+  await page.getByPlaceholder("Ask about selected shipment data...").fill("Follow-up question");
+  await page.getByRole("button", { name: "Send" }).click();
+
+  expect(requests.length).toBeGreaterThanOrEqual(2);
+  expect(requests[1].conversationId).toBeDefined();
+});
+
+test("New Chat button is visible and resets conversation", async ({ page }) => {
+  await mockDashboardApi(page);
+
+  await page.route("**/api/chat", async (route) => {
+    await route.fulfill({
+      status: 200,
+      json: {
+        answer: "Response",
+        dataUsed: { tools: [], rowsMatched: 0, rowLimitApplied: false },
+        requestId: "req_e2e_newchat",
+        conversationId: "conv_e2e_newchat",
+      },
+    });
+  });
+
+  await login(page);
+  await page.getByRole("button", { name: "AI" }).click();
+
+  await page.getByPlaceholder("Ask about selected shipment data...").fill("Hello");
+  await page.getByRole("button", { name: "Send" }).click();
+  await expect(page.getByText("Response")).toBeVisible();
+
+  await page.getByRole("button", { name: "Start new conversation" }).click();
+
+  await expect(page.getByText("Ask about TEU, carriers")).toBeVisible();
 });
 
 test("AI chat drawer composer stays anchored and usable on mobile", async ({ page }) => {
