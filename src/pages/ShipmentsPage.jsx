@@ -53,6 +53,7 @@ export default function ShipmentsPage({ filteredRows, currentUser, onDataRefresh
   const [form, setForm] = useState(EMPTY_FORM);
   const [saving, setSaving] = useState(false);
   const [message, setMessage] = useState("");
+  const [deleteConfirmOpen, setDeleteConfirmOpen] = useState(false);
   const colToggleRef = useRef(null);
   const canCrud = Boolean(currentUser?.role);
   const canViewAll = currentUser?.role === "admin" || currentUser?.role === "moderator";
@@ -165,6 +166,7 @@ export default function ShipmentsPage({ filteredRows, currentUser, onDataRefresh
     setForm(EMPTY_FORM);
     setActiveRow(null);
     setFormMode("create");
+    setDeleteConfirmOpen(false);
     setMessage("");
   }
 
@@ -172,6 +174,7 @@ export default function ShipmentsPage({ filteredRows, currentUser, onDataRefresh
     setActiveRow(row);
     setForm(rowToForm(row));
     setFormMode("detail");
+    setDeleteConfirmOpen(false);
     setMessage("");
   }
 
@@ -179,6 +182,7 @@ export default function ShipmentsPage({ filteredRows, currentUser, onDataRefresh
     setFormMode("");
     setActiveRow(null);
     setForm(EMPTY_FORM);
+    setDeleteConfirmOpen(false);
   }
 
   function setField(key, value) {
@@ -243,6 +247,17 @@ export default function ShipmentsPage({ filteredRows, currentUser, onDataRefresh
     } finally {
       setSaving(false);
     }
+  }
+
+  function requestDeleteConfirmation() {
+    if (!activeRow?.recordId) return;
+    setMessage("");
+    setDeleteConfirmOpen(true);
+  }
+
+  function cancelDeleteConfirmation() {
+    setDeleteConfirmOpen(false);
+    setMessage("");
   }
 
   const exportCsv = useCallback(() => {
@@ -386,9 +401,11 @@ export default function ShipmentsPage({ filteredRows, currentUser, onDataRefresh
         </div>
       </div>
 
-      {message ? <div className="inline-error shipment-message">{message}</div> : null}
+      {message && formMode !== "detail" ? (
+        <div className="inline-error shipment-message">{message}</div>
+      ) : null}
 
-      {formMode ? (
+      {formMode === "create" ? (
         <ShipmentEditor
           mode={formMode}
           form={form}
@@ -401,6 +418,42 @@ export default function ShipmentsPage({ filteredRows, currentUser, onDataRefresh
           onDelete={handleDelete}
           onClose={closeForm}
         />
+      ) : null}
+
+      {formMode === "detail" ? (
+        <div className="shipment-modal">
+          <div className="shipment-modal-backdrop" aria-hidden="true" />
+          <div
+            className="shipment-modal-dialog"
+            role="dialog"
+            aria-modal={deleteConfirmOpen ? undefined : "true"}
+            aria-labelledby="shipment-detail-title"
+          >
+            {message && !deleteConfirmOpen ? <div className="inline-error shipment-message">{message}</div> : null}
+            <ShipmentEditor
+              mode={formMode}
+              form={form}
+              row={activeRow}
+              titleId="shipment-detail-title"
+              canViewAll={canViewAll}
+              saving={saving}
+              onChange={setField}
+              onCreate={handleCreate}
+              onUpdate={handleUpdate}
+              onDelete={requestDeleteConfirmation}
+              onClose={closeForm}
+            />
+          </div>
+          {deleteConfirmOpen ? (
+            <DeleteConfirmationDialog
+              row={activeRow}
+              saving={saving}
+              message={message}
+              onCancel={cancelDeleteConfirmation}
+              onConfirm={handleDelete}
+            />
+          ) : null}
+        </div>
       ) : null}
 
       <div className="table-scroll">
@@ -537,10 +590,40 @@ export default function ShipmentsPage({ filteredRows, currentUser, onDataRefresh
   );
 }
 
+function DeleteConfirmationDialog({ row, saving, message, onCancel, onConfirm }) {
+  const title = `Delete shipment ${row?.bookingNo || row?.recordId}?`;
+  return (
+    <div className="shipment-confirm">
+      <div className="shipment-confirm-backdrop" aria-hidden="true" />
+      <div
+        className="shipment-confirm-dialog"
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="shipment-confirm-title"
+      >
+        <div className="top-title" id="shipment-confirm-title">{title}</div>
+        <p className="shipment-confirm-copy">
+          This action will remove the shipment from the active list.
+        </p>
+        {message ? <div className="inline-error shipment-confirm-message">{message}</div> : null}
+        <div className="shipment-confirm-actions">
+          <button className="btn" type="button" onClick={onCancel} disabled={saving}>
+            Cancel
+          </button>
+          <button className="btn btn-danger" type="button" onClick={onConfirm} disabled={saving}>
+            Confirm Delete
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 function ShipmentEditor({
   mode,
   form,
   row,
+  titleId,
   canViewAll,
   saving,
   onChange,
@@ -554,7 +637,7 @@ function ShipmentEditor({
     <section className="shipment-editor" aria-label="Shipment editor">
       <div className="admin-head">
         <div>
-          <div className="top-title">{isCreate ? "Add Shipment" : `Shipment Detail: ${row?.bookingNo || row?.recordId}`}</div>
+          <div className="top-title" id={titleId}>{isCreate ? "Add Shipment" : `Shipment Detail: ${row?.bookingNo || row?.recordId}`}</div>
           <div className="chart-sub">{isCreate ? "Create a record owned by the current session" : "Review and update shipment fields"}</div>
         </div>
         <button className="btn" type="button" onClick={onClose}>Close</button>

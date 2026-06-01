@@ -2531,6 +2531,86 @@ tbody td {
   padding: 18px;
 }
 
+.shipment-modal {
+  position: fixed;
+  inset: 0;
+  z-index: 1000;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 24px;
+}
+
+.shipment-modal-backdrop {
+  position: absolute;
+  inset: 0;
+  background: rgba(15, 23, 42, 0.48);
+}
+
+.shipment-modal-dialog {
+  position: relative;
+  width: min(1040px, calc(100vw - 32px));
+  max-height: calc(100vh - 48px);
+  overflow: auto;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: var(--surface);
+  box-shadow: 0 24px 70px rgba(15, 23, 42, 0.26);
+}
+
+.shipment-modal .shipment-editor {
+  margin: 0;
+  border: 0;
+  box-shadow: none;
+}
+
+.shipment-modal-dialog > .shipment-message {
+  margin: 18px 18px 0;
+}
+
+.shipment-confirm {
+  position: absolute;
+  inset: 0;
+  z-index: 2;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 24px;
+}
+
+.shipment-confirm-backdrop {
+  position: absolute;
+  inset: 0;
+  background: rgba(15, 23, 42, 0.36);
+}
+
+.shipment-confirm-dialog {
+  position: relative;
+  width: min(420px, calc(100vw - 48px));
+  border: 1px solid #fecaca;
+  border-radius: 8px;
+  background: var(--surface);
+  box-shadow: 0 22px 64px rgba(15, 23, 42, 0.28);
+  padding: 18px;
+}
+
+.shipment-confirm-copy {
+  margin: 8px 0 18px;
+  color: var(--text-sec);
+  font-size: 13px;
+  line-height: 1.5;
+}
+
+.shipment-confirm-message {
+  margin: 0 0 14px;
+}
+
+.shipment-confirm-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 10px;
+}
+
 .shipment-form {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
@@ -2982,6 +3062,16 @@ tbody td {
 
   .search-input {
     width: 100%;
+  }
+
+  .shipment-modal {
+    align-items: stretch;
+    padding: 12px;
+  }
+
+  .shipment-modal-dialog {
+    width: 100%;
+    max-height: calc(100vh - 24px);
   }
 
   .stats-row {

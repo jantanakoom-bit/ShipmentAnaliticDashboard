@@ -52,11 +52,20 @@ test("shipment CRUD controls create, update, and soft-delete records", async ({ 
   await expect(page.getByText("BK-NEW")).toBeVisible();
 
   await page.getByRole("button", { name: "View BK-NEW" }).click();
-  await expect(page.getByText("Shipment Detail: BK-NEW")).toBeVisible();
-  await page.getByLabel("Status").selectOption("Completed");
-  await page.getByRole("button", { name: "Save Changes" }).click();
+  const detailDialog = page.getByRole("dialog", { name: "Shipment Detail: BK-NEW" });
+  await expect(detailDialog).toBeVisible();
+  await expect(detailDialog.getByText("Shipment Detail: BK-NEW")).toBeVisible();
+  await detailDialog.getByLabel("Status").selectOption("Completed");
+  await detailDialog.getByRole("button", { name: "Save Changes" }).click();
   await expect(page.getByText("Shipment updated successfully")).toBeVisible();
-  await page.getByRole("button", { name: "Delete Shipment" }).click();
+  await detailDialog.getByRole("button", { name: "Delete Shipment" }).click();
+  const confirmDialog = page.getByRole("dialog", { name: "Delete shipment BK-NEW?" });
+  await expect(confirmDialog).toBeVisible();
+  await confirmDialog.getByRole("button", { name: "Cancel" }).click();
+  await expect(confirmDialog).toHaveCount(0);
+  await expect(detailDialog).toBeVisible();
+  await detailDialog.getByRole("button", { name: "Delete Shipment" }).click();
+  await page.getByRole("dialog", { name: "Delete shipment BK-NEW?" }).getByRole("button", { name: "Confirm Delete" }).click();
   await expect(page.getByText("Shipment deleted successfully")).toBeVisible();
 });
 
