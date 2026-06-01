@@ -125,10 +125,12 @@ The tracking page classifies delayed shipments, stale updates, missing operation
 
 Shipment CRUD uses `Detail Data` rows as sales records. Normal `user` accounts can only see and modify rows owned by their `Users.id` or username fallback. `moderator` can view and manage all shipment records but cannot manage users, roles, or system settings. `admin` keeps full user-management access.
 
+On the Shipments page, creating a shipment uses the inline form. Viewing an existing shipment opens a detail dialog for review and edits. Delete actions require a confirmation dialog and use soft delete only, so deleted rows remain in Google Sheets with audit fields instead of being removed.
+
 Add these optional columns to the right side of `Detail Data` before enabling website write-back on an existing production sheet:
 
 ```text
 record_id,owner_user_id,owner_username,created_by,updated_by,created_at,updated_at,is_deleted,deleted_at,deleted_by
 ```
 
-See `docs/data-contract.md` for the permission matrix, schema review, and backfill strategy.
+See `docs/data-contract.md` for the permission matrix, schema review, and backfill strategy. See `docs/rbac-sales-crud-pr-notes.md` for branch-specific review notes and verification evidence.

@@ -27,15 +27,15 @@ In Vercel production, `api/` files are deployed as serverless functions and non-
 
 ## Tech Stack
 
-| Layer | Technology |
-|-------|-----------|
-| Frontend | React 19, Recharts, React Router 7, Vite 7 |
-| Styling | Custom CSS (DM Sans + IBM Plex Mono) |
-| Backend | Vercel API handlers, local Express 5 dev server, session-based JWT auth (jose + bcryptjs) |
-| Data | Google Sheets API via googleapis |
-| Testing | Vitest (unit/API), Playwright (E2E) |
-| CI | GitHub Actions — lint, test, build, E2E |
-| Deploy | Vercel primary, Docker alternate |
+| Layer    | Technology                                                                                |
+| -------- | ----------------------------------------------------------------------------------------- |
+| Frontend | React 19, Recharts, React Router 7, Vite 7                                                |
+| Styling  | Custom CSS (DM Sans + IBM Plex Mono)                                                      |
+| Backend  | Vercel API handlers, local Express 5 dev server, session-based JWT auth (jose + bcryptjs) |
+| Data     | Google Sheets API via googleapis                                                          |
+| Testing  | Vitest (unit/API), Playwright (E2E)                                                       |
+| CI       | GitHub Actions — lint, test, build, E2E                                                   |
+| Deploy   | Vercel primary, Docker alternate                                                          |
 
 ## Frontend Structure
 
@@ -63,7 +63,7 @@ src/
 ├── pages/
 │   ├── DashboardPage.jsx  # / — KPIs, charts, insights, nav cards
 │   ├── AnalyticsPage.jsx  # /analytics — filter summary, detail KPIs, charts, rankings
-│   ├── ShipmentsPage.jsx  # /shipments — searchable sortable paginated table
+│   ├── ShipmentsPage.jsx  # /shipments — table, inline create form, modal detail/edit/delete flow
 │   ├── TrackingPage.jsx   # /tracking — milestones, exception queue
 │   └── AdminPage.jsx      # /admin — user CRUD
 ├── lib/
@@ -101,17 +101,19 @@ src/
    → Pages are stateless — they receive data and render
 ```
 
+Shipment CRUD writes use the authenticated API instead of mutating browser state directly. The Shipments page keeps creation inline, opens existing rows in a detail dialog, and requires confirmation before calling the soft-delete endpoint.
+
 ## State Management
 
 No external state library. App.jsx is the single state owner:
 
-| State | Purpose |
-|-------|---------|
-| `state` | Loading, error, metadata, detailData, filterOptions, counts |
-| `isAuthenticated` / `currentUser` | Auth state |
-| `dateFilters` | Year/quarter/month selections |
-| `selected` | Port/country/trade/carrier/sales selections |
-| `searches` | Search text for each multi-select filter |
+| State                             | Purpose                                                     |
+| --------------------------------- | ----------------------------------------------------------- |
+| `state`                           | Loading, error, metadata, detailData, filterOptions, counts |
+| `isAuthenticated` / `currentUser` | Auth state                                                  |
+| `dateFilters`                     | Year/quarter/month selections                               |
+| `selected`                        | Port/country/trade/carrier/sales selections                 |
+| `searches`                        | Search text for each multi-select filter                    |
 
 Derived data is computed with `useMemo` — `filteredRows`, `topPort`, `topCarrier`, etc.
 
@@ -121,13 +123,13 @@ AI chat data access is backend-owned. The browser sends messages, filters, and p
 
 ## Routing
 
-| Path | Page | Sidebar Mode |
-|------|------|-------------|
-| `/` | Dashboard | compact (year + quarter filters) |
-| `/analytics` | Analytics | full (all filters) |
-| `/shipments` | Shipments | full (all filters) |
-| `/tracking` | Tracking | full (all filters) |
-| `/admin` | Admin | nav (no filters) |
+| Path         | Page      | Sidebar Mode                     |
+| ------------ | --------- | -------------------------------- |
+| `/`          | Dashboard | compact (year + quarter filters) |
+| `/analytics` | Analytics | full (all filters)               |
+| `/shipments` | Shipments | full (all filters)               |
+| `/tracking`  | Tracking  | full (all filters)               |
+| `/admin`     | Admin     | nav (no filters)                 |
 
 ## Authentication
 
