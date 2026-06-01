@@ -141,6 +141,9 @@ describe("shipmentStore", () => {
       updatedRows: 0,
       recordIdColumnMissing: true,
     });
+    expect(mocks.values.get).toHaveBeenCalledWith(expect.objectContaining({
+      range: "Detail Data!A1:DY10002",
+    }));
     expect(mocks.values.update).not.toHaveBeenCalled();
   });
 

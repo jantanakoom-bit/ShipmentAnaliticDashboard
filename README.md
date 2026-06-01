@@ -56,7 +56,7 @@ id,username,password_hash,role,display_name,status,created_at,updated_at,last_lo
 Create an initial admin row manually. Generate the password hash with:
 
 ```bash
-npm run hash-password -- your-admin-password
+read -s PASSWORD && printf '%s\n' "$PASSWORD" | npm run hash-password -- --stdin; unset PASSWORD
 ```
 
 Use `role=admin` and `status=active`, then set Google/Vercel environment variables from `.env.example`. Supported roles are `admin`, `moderator`, and `user`.
