@@ -56,6 +56,26 @@ The backend reads `Detail Data` through `api/_lib/workbook.js`. Existing sheets 
 
 If `shipmentId` is missing, the tracking model builds a fallback ID from `bookingNo`, `jobNo`, and `date`.
 
+### Optional Exception Workflow Columns
+
+These columns allow the `/tracking` exception queue to store follow-up status in `Detail Data`. They can be appended to the right side of the sheet.
+
+| Column | Normalized field | Used for |
+|--------|------------------|----------|
+| `exception_status` | `exceptionStatus` | Follow-up status: `open`, `in_progress`, `waiting`, `resolved` |
+| `exception_priority` | `exceptionPriority` | Follow-up priority: `low`, `normal`, `high`, `urgent` |
+| `exception_owner_user_id` | `exceptionOwnerUserId` | Assigned user id |
+| `exception_owner_username` | `exceptionOwnerUsername` | Assigned username/display fallback |
+| `exception_next_action` | `exceptionNextAction` | Current next action |
+| `exception_due_at` | `exceptionDueAt` | Due date for follow-up |
+| `exception_note` | `exceptionNote` | Latest operational note |
+| `exception_updated_by` | `exceptionUpdatedBy` | Server-written updater user id |
+| `exception_updated_at` | `exceptionUpdatedAt` | Server-written update timestamp |
+| `exception_resolved_by` | `exceptionResolvedBy` | Server-written resolver user id |
+| `exception_resolved_at` | `exceptionResolvedAt` | Server-written resolved timestamp |
+
+Blank `exception_status` defaults to `open` and blank `exception_priority` defaults to `normal`. Client requests cannot set workflow audit fields directly.
+
 ### Optional RBAC and CRUD Columns
 
 These columns are required for secure multi-salesperson CRUD. Existing sheets can add them to the right side of `Detail Data`; no current column needs to be renamed or deleted.
@@ -131,5 +151,6 @@ The first command is read-only and reports how many rows are missing `record_id`
 
 - Missing optional tracking columns do not break dashboard, analytics, shipments, or AI chat.
 - Missing `ETA` or milestone data appears as a tracking exception instead of a load failure.
+- Missing optional exception workflow columns do not break tracking reads; the patch endpoint appends them before writing.
 - Authentication data and Google service credentials must not be exposed to the frontend.
 - Shipment create/update/delete and record-id backfill invalidate the backend workbook cache so frontend refreshes read the latest Google Sheets data immediately.

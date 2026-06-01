@@ -258,6 +258,7 @@ describe("TrackingPage", () => {
     const rows = [
       {
         ...shipmentRows[0],
+        recordId: "rec-001",
         shipmentId: "SHP-001",
         eta: new Date("2026-05-20T00:00:00.000Z"),
         currentMilestone: "In Transit",
@@ -265,6 +266,7 @@ describe("TrackingPage", () => {
       },
       {
         ...shipmentRows[1],
+        recordId: "rec-002",
         shipmentId: "SHP-002",
         eta: new Date("2026-06-10T00:00:00.000Z"),
         currentMilestone: "Booked",
@@ -285,6 +287,69 @@ describe("TrackingPage", () => {
     await user.selectOptions(screen.getByLabelText("Exception type"), "delayed");
     expect(screen.getByText("BK-001")).toBeInTheDocument();
     expect(screen.queryByText("BK-002")).not.toBeInTheDocument();
+  });
+
+  test("updates exception workflow from the tracking queue", async () => {
+    const user = userEvent.setup();
+    apiRequest.mockResolvedValue({
+      row: {
+        ...shipmentRows[0],
+        recordId: "rec-001",
+        exceptionStatus: "in_progress",
+        exceptionPriority: "high",
+        exceptionOwnerUsername: "tester",
+        exceptionNextAction: "Call carrier",
+        exceptionDueAt: "2026-06-03",
+        exceptionNote: "Waiting for reply",
+      },
+    });
+    const onDataRefresh = vi.fn();
+    const rows = [
+      {
+        ...shipmentRows[0],
+        recordId: "rec-001",
+        shipmentId: "SHP-001",
+        eta: new Date("2026-05-20T00:00:00.000Z"),
+        currentMilestone: "In Transit",
+        lastEventTime: new Date("2026-05-29T00:00:00.000Z"),
+        exceptionStatus: "open",
+        exceptionPriority: "normal",
+      },
+    ];
+
+    renderWithRouter(
+      <TrackingPage
+        filteredRows={rows}
+        now={new Date("2026-06-01T00:00:00.000Z")}
+        onDataRefresh={onDataRefresh}
+      />,
+    );
+
+    await user.click(screen.getByRole("button", { name: /Update action for BK-001/ }));
+    const dialog = within(screen.getByRole("dialog", { name: /Exception action for BK-001/ }));
+    await user.selectOptions(dialog.getByLabelText("Action status"), "in_progress");
+    await user.selectOptions(dialog.getByLabelText("Priority"), "high");
+    await user.type(dialog.getByLabelText("Owner username"), "tester");
+    await user.type(dialog.getByLabelText("Due date"), "2026-06-03");
+    await user.type(dialog.getByLabelText("Next action"), "Call carrier");
+    await user.type(dialog.getByLabelText("Note"), "Waiting for reply");
+    await user.click(dialog.getByRole("button", { name: "Save Action" }));
+
+    await waitFor(() => {
+      expect(apiRequest).toHaveBeenCalledWith("/api/tracking/exceptions/rec-001", expect.objectContaining({
+        method: "PATCH",
+        body: JSON.stringify({
+          actionStatus: "in_progress",
+          priority: "high",
+          ownerUserId: "",
+          ownerUsername: "tester",
+          nextAction: "Call carrier",
+          dueAt: "2026-06-03",
+          note: "Waiting for reply",
+        }),
+      }));
+      expect(onDataRefresh).toHaveBeenCalledTimes(1);
+    });
   });
 });
 

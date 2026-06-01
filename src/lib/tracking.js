@@ -1,8 +1,11 @@
 const DEFAULT_STALE_DAYS = 7;
+const ACTION_STATUSES = new Set(["open", "in_progress", "waiting", "resolved"]);
+const ACTION_PRIORITIES = new Set(["low", "normal", "high", "urgent"]);
 
 export function buildTrackingViewModel(rows = [], { now = new Date(), staleDays = DEFAULT_STALE_DAYS } = {}) {
   const enrichedRows = rows.map((row) => enrichRow(row, { now, staleDays }));
   const exceptions = enrichedRows.filter((row) => row.exceptionTypes.length > 0);
+  const openActionRows = exceptions.filter((row) => row.isExceptionActionOpen);
 
   return {
     summary: {
@@ -12,6 +15,9 @@ export function buildTrackingViewModel(rows = [], { now = new Date(), staleDays 
       missingDataShipments: exceptions.filter((row) => row.exceptionTypes.includes("missing_data")).length,
       invalidSequenceShipments: exceptions.filter((row) => row.exceptionTypes.includes("invalid_sequence")).length,
       exceptionShipments: exceptions.length,
+      openActionShipments: openActionRows.length,
+      unassignedActionShipments: openActionRows.filter((row) => !row.isExceptionActionAssigned).length,
+      overdueActionShipments: openActionRows.filter((row) => row.isExceptionActionOverdue).length,
     },
     milestoneSummary: countBy(enrichedRows, "currentMilestone"),
     rows: enrichedRows,
@@ -26,6 +32,10 @@ export function filterTrackingRows(rows = [], filters = {}) {
     if (!matchesValue(row.trade, filters.trade)) return false;
     if (!matchesValue(row.saleName, filters.sales || filters.saleName)) return false;
     if (!matchesValue(row.status, filters.status)) return false;
+    if (!matchesValue(row.exceptionStatus, filters.actionStatus)) return false;
+    if (!matchesValue(row.exceptionPriority, filters.priority)) return false;
+    if (!matchesValue(row.exceptionOwnerUsername || row.exceptionOwnerUserId, filters.actionOwner)) return false;
+    if (!matchesDueState(row, filters.dueState)) return false;
     if (!matchesException(row, filters.exceptionType)) return false;
     return true;
   });
@@ -46,12 +56,25 @@ function enrichRow(row, { now, staleDays }) {
     atd: toDate(row.atd),
     lastEventTime: toDate(row.lastEventTime),
     delayDays: toNumber(row.delayDays),
+    exceptionStatus: normalizeActionStatus(row.exceptionStatus),
+    exceptionPriority: normalizeActionPriority(row.exceptionPriority),
+    exceptionOwnerUserId: text(row.exceptionOwnerUserId),
+    exceptionOwnerUsername: text(row.exceptionOwnerUsername),
+    exceptionNextAction: text(row.exceptionNextAction),
+    exceptionDueAt: text(row.exceptionDueAt),
+    exceptionNote: text(row.exceptionNote),
   };
   const exceptionTypes = getExceptionTypes(normalized, { now, staleDays });
+  const isExceptionActionOpen = exceptionTypes.length > 0 && normalized.exceptionStatus !== "resolved";
+  const isExceptionActionAssigned = Boolean(normalized.exceptionOwnerUserId || normalized.exceptionOwnerUsername);
+  const isExceptionActionOverdue = isExceptionActionOpen && isPastDue(normalized.exceptionDueAt, now);
   return {
     ...normalized,
     exceptionTypes,
     hasException: exceptionTypes.length > 0,
+    isExceptionActionOpen,
+    isExceptionActionAssigned,
+    isExceptionActionOverdue,
   };
 }
 
@@ -100,6 +123,22 @@ function matchesException(row, expected) {
   return row.exceptionTypes.includes(expected);
 }
 
+function matchesDueState(row, expected) {
+  if (!expected || expected === "All") {
+    return true;
+  }
+  if (expected === "overdue") {
+    return row.isExceptionActionOverdue;
+  }
+  if (expected === "unassigned") {
+    return row.isExceptionActionOpen && !row.isExceptionActionAssigned;
+  }
+  if (expected === "assigned") {
+    return row.isExceptionActionAssigned;
+  }
+  return true;
+}
+
 function buildFallbackShipmentId(row) {
   return [
     row.bookingNo || "no-booking",
@@ -126,6 +165,19 @@ function toDate(value) {
   return null;
 }
 
+function isPastDue(value, now) {
+  const dueAt = toDate(value);
+  if (!dueAt) {
+    return false;
+  }
+  return dueAt.getTime() < startOfDay(now).getTime();
+}
+
+function startOfDay(value) {
+  const date = toDate(value) || new Date();
+  return new Date(Date.UTC(date.getUTCFullYear(), date.getUTCMonth(), date.getUTCDate()));
+}
+
 function toNumber(value) {
   const num = Number(value);
   return Number.isFinite(num) ? num : 0;
@@ -133,4 +185,18 @@ function toNumber(value) {
 
 function normalizeComparable(value) {
   return `${value ?? ""}`.trim().toLowerCase();
+}
+
+function text(value) {
+  return `${value ?? ""}`.trim();
+}
+
+function normalizeActionStatus(value) {
+  const normalized = text(value).toLowerCase();
+  return ACTION_STATUSES.has(normalized) ? normalized : "open";
+}
+
+function normalizeActionPriority(value) {
+  const normalized = text(value).toLowerCase();
+  return ACTION_PRIORITIES.has(normalized) ? normalized : "normal";
 }

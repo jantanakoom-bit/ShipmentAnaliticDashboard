@@ -30,6 +30,13 @@ describe("normalizeTrackingFields", () => {
       shipmentId: "BK-001-JOB-001-2026-05-01",
       containerNo: "",
       currentMilestone: "Loaded",
+      exceptionStatus: "open",
+      exceptionPriority: "normal",
+      exceptionOwnerUserId: "",
+      exceptionOwnerUsername: "",
+      exceptionNextAction: "",
+      exceptionDueAt: "",
+      exceptionNote: "",
       delayDays: 0,
       delayReason: "",
       onTimeFlag: "",
@@ -51,6 +58,13 @@ describe("normalizeTrackingFields", () => {
       delayDays: "1",
       delayReason: "Port congestion",
       onTimeFlag: "No",
+      exceptionStatus: "waiting",
+      exceptionPriority: "high",
+      exceptionOwnerUserId: "user-1",
+      exceptionOwnerUsername: "tester",
+      exceptionNextAction: "Call carrier",
+      exceptionDueAt: "2026-06-03",
+      exceptionNote: "Waiting for reply",
     }));
 
     expect(row.shipmentId).toBe("SHP-001");
@@ -61,6 +75,10 @@ describe("normalizeTrackingFields", () => {
     expect(row.delayDays).toBe(1);
     expect(row.delayReason).toBe("Port congestion");
     expect(row.onTimeFlag).toBe("No");
+    expect(row.exceptionStatus).toBe("waiting");
+    expect(row.exceptionPriority).toBe("high");
+    expect(row.exceptionOwnerUsername).toBe("tester");
+    expect(row.exceptionNextAction).toBe("Call carrier");
   });
 });
 
@@ -108,6 +126,9 @@ describe("buildTrackingModel", () => {
       missingDataShipments: 1,
       invalidSequenceShipments: 1,
       exceptionShipments: 4,
+      openActionShipments: 4,
+      unassignedActionShipments: 4,
+      overdueActionShipments: 0,
     });
     expect(model.exceptions.map((row) => row.bookingNo)).toEqual([
       "BK-DELAY",
@@ -119,6 +140,47 @@ describe("buildTrackingModel", () => {
     expect(model.exceptions.find((row) => row.bookingNo === "BK-STALE").exceptionTypes).toContain("stale");
     expect(model.exceptions.find((row) => row.bookingNo === "BK-MISSING").exceptionTypes).toContain("missing_data");
     expect(model.exceptions.find((row) => row.bookingNo === "BK-INVALID").exceptionTypes).toContain("invalid_sequence");
+  });
+
+  test("summarizes open, unassigned, and overdue exception action workflow", () => {
+    const model = buildTrackingModel([
+      baseRow({
+        bookingNo: "BK-OPEN",
+        eta: "2026-05-20",
+        currentMilestone: "In Transit",
+        exceptionStatus: "open",
+        exceptionDueAt: "2026-05-31",
+      }),
+      baseRow({
+        bookingNo: "BK-ASSIGNED",
+        eta: "2026-05-21",
+        currentMilestone: "In Transit",
+        exceptionStatus: "in_progress",
+        exceptionOwnerUserId: "user-1",
+        exceptionDueAt: "2026-06-03",
+      }),
+      baseRow({
+        bookingNo: "BK-RESOLVED",
+        eta: "2026-05-22",
+        currentMilestone: "In Transit",
+        exceptionStatus: "resolved",
+        exceptionOwnerUserId: "user-1",
+        exceptionDueAt: "2026-05-30",
+      }),
+    ], { now: NOW });
+
+    expect(model.summary).toMatchObject({
+      exceptionShipments: 3,
+      openActionShipments: 2,
+      unassignedActionShipments: 1,
+      overdueActionShipments: 1,
+    });
+    expect(model.exceptions.find((row) => row.bookingNo === "BK-OPEN")).toMatchObject({
+      exceptionStatus: "open",
+      isExceptionActionOpen: true,
+      isExceptionActionAssigned: false,
+      isExceptionActionOverdue: true,
+    });
   });
 
   test("filters tracking rows by milestone, exception type, carrier, trade, and sales", () => {
@@ -147,6 +209,39 @@ describe("buildTrackingModel", () => {
       carrier: "Carrier A",
       trade: "Asia",
       sales: "Pan",
+    });
+
+    expect(rows).toHaveLength(1);
+    expect(rows[0].bookingNo).toBe("BK-001");
+  });
+
+  test("filters tracking rows by exception workflow status, priority, owner, and due state", () => {
+    const model = buildTrackingModel([
+      baseRow({
+        bookingNo: "BK-001",
+        eta: "2026-05-20",
+        currentMilestone: "In Transit",
+        exceptionStatus: "open",
+        exceptionPriority: "high",
+        exceptionOwnerUsername: "tester",
+        exceptionDueAt: "2026-05-31",
+      }),
+      baseRow({
+        bookingNo: "BK-002",
+        eta: "2026-05-20",
+        currentMilestone: "In Transit",
+        exceptionStatus: "waiting",
+        exceptionPriority: "normal",
+        exceptionOwnerUsername: "mint",
+        exceptionDueAt: "2026-06-03",
+      }),
+    ], { now: NOW });
+
+    const rows = filterTrackingRows(model.rows, {
+      actionStatus: "open",
+      priority: "high",
+      actionOwner: "tester",
+      dueState: "overdue",
     });
 
     expect(rows).toHaveLength(1);

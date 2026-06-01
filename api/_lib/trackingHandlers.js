@@ -3,6 +3,7 @@ import { requireSession as defaultRequireSession } from "./authHandlers.js";
 import { filterRows, loadWorkbookData as defaultLoadWorkbookData } from "./workbook.js";
 import { buildTrackingModel, filterTrackingRows, serializeTrackingRow } from "./tracking.js";
 import { scopeRowsForUser } from "./rbac.js";
+import * as defaultTrackingStore from "./trackingStore.js";
 
 export async function trackingCollectionHandler(req, res, deps = {}) {
   const {
@@ -57,6 +58,40 @@ export async function trackingExceptionsHandler(req, res, deps = {}) {
     count: rows.length,
     rows: rows.map(serializeTrackingRow),
     generatedAt: trackingModel.generatedAt,
+  });
+}
+
+export async function trackingExceptionItemHandler(req, res, recordId, deps = {}) {
+  const {
+    loadWorkbookData = defaultLoadWorkbookData,
+    requireSession = defaultRequireSession,
+    trackingStore = defaultTrackingStore,
+  } = deps;
+
+  if (req.method !== "PATCH") {
+    return sendMethodNotAllowed(res, ["PATCH"]);
+  }
+
+  const session = await requireSession(req, res);
+  if (!session) {
+    return;
+  }
+
+  const { detailData } = await loadWorkbookData();
+  const accessibleRow = scopeRowsForUser(detailData, session.user).find((row) => row.recordId === recordId);
+  if (!accessibleRow) {
+    const existing = detailData.find((row) => row.recordId === recordId);
+    if (existing) {
+      return sendJson(res, 403, { error: "Shipment access denied." });
+    }
+    return sendJson(res, 404, { error: "Shipment not found." });
+  }
+
+  const patch = (trackingStore.sanitizeExceptionWorkflowPatch || defaultTrackingStore.sanitizeExceptionWorkflowPatch)(getRequestBody(req));
+  const updated = await trackingStore.updateExceptionWorkflow(recordId, patch, { session });
+
+  return sendJson(res, 200, {
+    row: serializeTrackingRow(updated),
   });
 }
 
