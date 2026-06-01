@@ -1,13 +1,15 @@
 # Shipment Analytic Dashboard
 
-Dashboard scaffold for shipment analysis based on `Detail_Report_Format.xlsx`.
+Authenticated shipment analytics and operational tracking dashboard backed by Google Sheets.
 
 ## Stack
 
 - Vite
 - React
 - Recharts
-- `xlsx` for client-side workbook parsing
+- Express/Vercel API handlers
+- Google Sheets API
+- OpenAI SDK for the optional AI assistant
 
 ## Run
 
@@ -37,6 +39,7 @@ API endpoints:
 - `GET /api/shipments?limit=20&carrier=ONE`
 - `GET /api/tracking?milestone=In%20Transit`
 - `GET /api/tracking/exceptions?exceptionType=delayed`
+- `POST /api/chat`
 
 ## Login Users
 
@@ -57,7 +60,7 @@ Use `role=admin` and `status=active`, then set Google/Vercel environment variabl
 ## Docker
 
 ```bash
-copy .env.example .env
+cp .env.example .env
 docker compose up --build frontend
 ```
 
@@ -69,12 +72,12 @@ Run the Express backend container as well:
 docker compose --profile backend up --build
 ```
 
-See `docs/devops.md` for local deployment, environment variable, and smoke-test details.
+See `docs/deployment.md` for local deployment, environment variable, and smoke-test details.
 
 ## Current Scope
 
-- Loads `/public/data/Detail_Report_Format.xlsx`
-- Parses `Detail Data`, `Trade`, and `Carrier`
+- Loads `Detail Data` from Google Sheets
+- Parses analytics fields and optional operational tracking fields
 - Includes server-side login with Google Sheets users
 - Supports period filters for `month`, `quarter`, and `year`
 - Builds a dashboard overview for:
@@ -101,7 +104,11 @@ The tracking page classifies delayed shipments, stale updates, missing operation
 
 ## Design Reference
 
-- See `docs/dashboard-design.md` for KPI, chart, and tracking design guidance based on the current Excel structure.
+- See `docs/architecture.md` for system architecture.
+- See `docs/data-contract.md` for Google Sheets column requirements.
+- See `docs/operational-tracking.md` for tracking rules and workflow.
+- See `docs/ai-chat-system-design.md` for AI chat behavior.
+- See `docs/testing.md` for verification strategy.
 
 ## Next Recommended Iteration
 

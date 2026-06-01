@@ -1,8 +1,8 @@
 # API Reference
 
-Base URL: `http://localhost:3001` (dev) or same origin via nginx proxy (prod)
+Base URL: `http://localhost:3001` for the local Express API or same-origin `/api` in Vercel production.
 
-All responses use JSON. Errors return `{ success: false, error: "message" }`.
+All responses use JSON. Errors return `{ "error": "message" }`.
 
 ## Auth
 
@@ -17,12 +17,12 @@ Authenticate user and create session.
 
 **Response (200):**
 ```json
-{ "success": true, "user": { "username": "admin", "role": "admin", "displayName": "Admin" } }
+{ "user": { "username": "admin", "role": "admin", "displayName": "Admin" } }
 ```
 
 **Error (401):**
 ```json
-{ "success": false, "error": "Invalid username or password" }
+{ "error": "Invalid username or password" }
 ```
 
 ### POST /api/auth/logout
@@ -31,7 +31,7 @@ Destroy session.
 
 **Response (200):**
 ```json
-{ "success": true }
+{ "ok": true }
 ```
 
 ### GET /api/auth/session
@@ -40,7 +40,7 @@ Check current session status.
 
 **Response (200):**
 ```json
-{ "authenticated": true, "user": { "username": "admin", "role": "admin" } }
+{ "user": { "username": "admin", "role": "admin" } }
 ```
 
 **Error (401):** Not authenticated.
@@ -58,7 +58,12 @@ Fetch all shipment data from Google Sheets.
 **Response (200):**
 ```json
 {
-  "metadata": { "sheetTitle": "...", "lastUpdated": "..." },
+  "metadata": {
+    "source": "Google Sheets: Detail Data",
+    "shipments": 128,
+    "dateRange": { "min": "2024-01-15T00:00:00.000Z", "max": "2026-05-20T00:00:00.000Z" },
+    "filters": { "years": ["2024", "2025", "2026"] }
+  },
   "detailData": [
     {
       "date": "2024-01-15",
@@ -76,9 +81,105 @@ Fetch all shipment data from Google Sheets.
       "qty": 5,
       "unit": "40HC",
       "teu": 10,
-      "status": "Completed"
+      "status": "Completed",
+      "shipmentId": "SHP-001",
+      "eta": "2026-05-20T00:00:00.000Z",
+      "currentMilestone": "In Transit"
     }
   ]
+}
+```
+
+---
+
+### GET /api/metadata
+
+Fetch workbook metadata only.
+
+**Auth:** Required (session cookie).
+
+**Response (200):**
+```json
+{
+  "source": "Google Sheets: Detail Data",
+  "shipments": 128,
+  "dateRange": { "min": "2024-01-15T00:00:00.000Z", "max": "2026-05-20T00:00:00.000Z" },
+  "filters": {
+    "years": ["2024", "2025", "2026"],
+    "quarters": ["Q1", "Q2"],
+    "carriers": ["Maersk", "ONE"]
+  }
+}
+```
+
+### GET /api/shipments
+
+Return filtered shipment rows with a capped result size.
+
+**Auth:** Required (session cookie).
+
+**Optional query params:** `year`, `quarter`, `month`, `trade`, `carrier`, `shipper`, `status`, `sales`, `limit`.
+
+`limit` is clamped from `1` to `500` and defaults to `100`.
+
+**Response (200):**
+```json
+{
+  "count": 42,
+  "rows": [
+    {
+      "date": "2026-05-01T00:00:00.000Z",
+      "bookingNo": "BK001",
+      "jobNo": "J001",
+      "shipper": "Company A",
+      "carrier": "ONE",
+      "trade": "Asia",
+      "qty": 2,
+      "teu": 4,
+      "status": "In Transit",
+      "shipmentId": "SHP-001",
+      "eta": "2026-05-20T00:00:00.000Z",
+      "currentMilestone": "In Transit"
+    }
+  ]
+}
+```
+
+### GET /api/analytics
+
+Return aggregate metrics for filtered shipment rows.
+
+**Auth:** Required (session cookie).
+
+**Optional query params:** `year`, `quarter`, `month`, `trade`, `carrier`, `shipper`, `status`, `sales`, `grain`.
+
+`grain` accepts `month`, `quarter`, or `year`; default is `month`.
+
+**Response (200):**
+```json
+{
+  "filteredCount": 42,
+  "summary": {
+    "shipments": 42,
+    "totalTeu": 168,
+    "totalQty": 84,
+    "uniqueShippers": 12,
+    "activeRoutes": 8,
+    "averageTeuPerShipment": 4,
+    "latestPeriodLabel": "2026-05",
+    "shipmentChangePct": 12.5,
+    "teuChangePct": 9.1
+  },
+  "timeSeries": [
+    { "label": "2026-05", "shipments": 10, "teu": 40, "qty": 20 }
+  ],
+  "topTrades": [],
+  "topCarriers": [],
+  "topDestinations": [],
+  "topShippers": [],
+  "statusBreakdown": [],
+  "routeRanking": [],
+  "detailRows": []
 }
 ```
 
@@ -122,6 +223,8 @@ Return read-only operational tracking rows, milestone counts, and exception summ
 }
 ```
 
+**Exception types:** `delayed`, `stale`, `missing_data`, `invalid_sequence`.
+
 ### GET /api/tracking/exceptions
 
 Return only tracking rows that require operational review.
@@ -145,6 +248,60 @@ Return only tracking rows that require operational review.
 
 ---
 
+## AI Chat
+
+### POST /api/chat
+
+Send an authenticated chat request to the shipment analytics assistant. OpenAI access stays on the backend.
+
+**Auth:** Required (session cookie).
+
+**Request:**
+```json
+{
+  "messages": [
+    { "role": "user", "content": "Summarize top carriers this quarter" }
+  ],
+  "filters": {
+    "year": ["2026"],
+    "quarter": ["Q2"]
+  },
+  "pageContext": {
+    "route": "/analytics",
+    "title": "Analytics"
+  }
+}
+```
+
+**Response (200):**
+```json
+{
+  "answer": "Here is the shipment summary for the selected filters...",
+  "dataUsed": {
+    "filters": {
+      "year": ["2026"],
+      "quarter": ["Q2"]
+    },
+    "tools": ["get_shipment_summary"],
+    "rowsMatched": 42,
+    "rowLimitApplied": false
+  },
+  "requestId": "3f1d1f8c-8b27-4e27-b2d3-2fdd6c52b29d"
+}
+```
+
+**Errors:**
+
+| Status | Meaning |
+|--------|---------|
+| `400` | Invalid chat payload |
+| `401` | Missing or invalid session |
+| `429` | Per-user rate limit exceeded |
+| `503` | AI chat is not configured |
+| `500` | AI response failed |
+
+---
+
 ## Health
 
 ### GET /api/health
@@ -153,7 +310,13 @@ Health check endpoint. No auth required.
 
 **Response (200):**
 ```json
-{ "status": "ok", "timestamp": "2024-01-15T10:00:00.000Z" }
+{
+  "ok": true,
+  "service": "shipment-analytic-dashboard-api",
+  "workbookFound": true,
+  "workbookSource": "Google Sheets: Detail Data",
+  "timestamp": "2024-01-15T10:00:00.000Z"
+}
 ```
 
 ---
@@ -169,9 +332,8 @@ List all users.
 **Response (200):**
 ```json
 {
-  "success": true,
   "users": [
-    { "id": 1, "username": "admin", "role": "admin", "active": true }
+    { "id": "user-1", "username": "admin", "role": "admin", "status": "active" }
   ]
 }
 ```
@@ -187,7 +349,7 @@ Create a new user.
 
 **Response (201):**
 ```json
-{ "success": true, "user": { "id": 2, "username": "newuser", "role": "user" } }
+{ "user": { "id": "user-2", "username": "newuser", "role": "user" } }
 ```
 
 ### PATCH /api/admin/users/:id
@@ -196,10 +358,10 @@ Update user fields.
 
 **Request:**
 ```json
-{ "role": "admin", "active": true }
+{ "role": "admin", "status": "active" }
 ```
 
 **Response (200):**
 ```json
-{ "success": true, "user": { "id": 2, "username": "newuser", "role": "admin" } }
+{ "user": { "id": "user-2", "username": "newuser", "role": "admin" } }
 ```
