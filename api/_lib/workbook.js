@@ -1,17 +1,24 @@
 import { getSheetsClient, requiredEnv } from "./googleSheets.js";
+import { getWriteCacheBuster } from "./shipmentWriteCache.js";
 
 const DETAIL_SHEET = process.env.DATA_SHEET_NAME || "Detail Data";
 const CACHE_MS = 45 * 1000;
 
 let dataCache = null;
 let cachedAt = 0;
+let cachedWriteCacheBuster = -1;
 
 export function resolveWorkbookPath() {
   return `Google Sheets: ${DETAIL_SHEET}`;
 }
 
 export async function loadWorkbookData() {
-  if (dataCache && Date.now() - cachedAt < CACHE_MS) {
+  const currentWriteCacheBuster = getWriteCacheBuster();
+  if (
+    dataCache &&
+    cachedWriteCacheBuster === currentWriteCacheBuster &&
+    Date.now() - cachedAt < CACHE_MS
+  ) {
     return dataCache;
   }
 
@@ -47,6 +54,7 @@ export async function loadWorkbookData() {
     },
   };
   cachedAt = Date.now();
+  cachedWriteCacheBuster = currentWriteCacheBuster;
 
   return dataCache;
 }
