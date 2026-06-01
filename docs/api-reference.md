@@ -118,6 +118,8 @@ Return filtered shipment rows with a capped result size.
 
 **Auth:** Required (session cookie).
 
+**RBAC:** `user` receives only owned, non-deleted rows. `moderator` and `admin` receive all non-deleted rows.
+
 **Optional query params:** `year`, `quarter`, `month`, `trade`, `carrier`, `shipper`, `status`, `sales`, `limit`.
 
 `limit` is clamped from `1` to `500` and defaults to `100`.
@@ -144,6 +146,54 @@ Return filtered shipment rows with a capped result size.
   ]
 }
 ```
+
+### POST /api/shipments
+
+Create a shipment row in `Detail Data`.
+
+**Auth:** Required. `user`, `moderator`, and `admin` can create records. For `user`, owner fields are always taken from the session.
+
+**Request:**
+```json
+{
+  "date": "2026-06-01",
+  "bookingNo": "BK-100",
+  "jobNo": "JOB-100",
+  "shipper": "Company A",
+  "port": "Tokyo",
+  "country": "Japan",
+  "trade": "Asia",
+  "carrier": "ONE",
+  "saleName": "Pan",
+  "qty": 2,
+  "unit": "40HC",
+  "teu": 4,
+  "status": "Booked"
+}
+```
+
+**Response (201):**
+```json
+{ "row": { "recordId": "uuid", "ownerUserId": "user-1", "bookingNo": "BK-100" } }
+```
+
+### GET /api/shipments/:id
+
+Fetch one shipment row by `record_id`.
+
+**RBAC:** `user` can fetch only owned records; `moderator` and `admin` can fetch any non-deleted record.
+
+### PATCH /api/shipments/:id
+
+Update one shipment row.
+
+**RBAC:** `user` can update only owned records. `moderator` and `admin` can update any non-deleted record. Normal users cannot override owner or audit fields.
+
+### DELETE /api/shipments/:id
+
+Soft-delete one shipment row by setting `is_deleted=true` plus delete audit fields.
+
+**RBAC:** `user` can soft-delete only owned records. `moderator` and `admin` can soft-delete any sales record.
 
 ### GET /api/analytics
 

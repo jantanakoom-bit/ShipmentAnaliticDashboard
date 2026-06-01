@@ -37,6 +37,10 @@ API endpoints:
 - `GET /api/metadata`
 - `GET /api/analytics?grain=quarter&year=2026`
 - `GET /api/shipments?limit=20&carrier=ONE`
+- `POST /api/shipments`
+- `GET /api/shipments/:id`
+- `PATCH /api/shipments/:id`
+- `DELETE /api/shipments/:id`
 - `GET /api/tracking?milestone=In%20Transit`
 - `GET /api/tracking/exceptions?exceptionType=delayed`
 - `POST /api/chat`
@@ -55,7 +59,7 @@ Create an initial admin row manually. Generate the password hash with:
 npm run hash-password -- your-admin-password
 ```
 
-Use `role=admin` and `status=active`, then set Google/Vercel environment variables from `.env.example`.
+Use `role=admin` and `status=active`, then set Google/Vercel environment variables from `.env.example`. Supported roles are `admin`, `moderator`, and `user`.
 
 ## Docker
 
@@ -116,3 +120,15 @@ The tracking page classifies delayed shipments, stale updates, missing operation
 - Add event-level movement history once source data is available
 - Add owner/action workflow and notifications for exception follow-up
 - Extend AI assistant with operational tracking tools
+
+## RBAC Sales CRUD
+
+Shipment CRUD uses `Detail Data` rows as sales records. Normal `user` accounts can only see and modify rows owned by their `Users.id` or username fallback. `moderator` can view and manage all shipment records but cannot manage users, roles, or system settings. `admin` keeps full user-management access.
+
+Add these optional columns to the right side of `Detail Data` before enabling website write-back on an existing production sheet:
+
+```text
+record_id,owner_user_id,owner_username,created_by,updated_by,created_at,updated_at,is_deleted,deleted_at,deleted_by
+```
+
+See `docs/data-contract.md` for the permission matrix, schema review, and backfill strategy.
